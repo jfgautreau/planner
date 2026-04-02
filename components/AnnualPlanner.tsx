@@ -293,11 +293,11 @@ function useIsMobile() {
 type MobileCalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string; canEdit: boolean;
+  selectedCon: string; canEdit: boolean; canRead: boolean;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, onFirstClick }: MobileCalViewProps) {
+function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, onFirstClick }: MobileCalViewProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const dim = (mi: number) => new Date(year, mi + 1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -360,7 +360,7 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, c
           return (
             <div
               key={dayNum}
-              onClick={() => { if (!blocked && selectedCon && canEdit) onFirstClick(dateStr, hasAffs); }}
+              onClick={() => { if (!blocked && selectedCon && canRead) onFirstClick(dateStr, hasAffs); }}
               style={{
                 borderRadius:6,
                 border: isToday ? `2px solid ${NAVY}` : "1px solid #e0e0e0",
@@ -437,11 +437,11 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, c
 type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string; canEdit: boolean;
+  selectedCon: string; canEdit: boolean; canRead: boolean;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const getAffs = (s: string) => affectations.filter(a => a.Date.startsWith(s));
@@ -582,7 +582,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
 
                         {/* Cellule mission */}
                         <td
-                          onClick={() => { if (!blocked && selectedCon && canEdit) onFirstClick(dateStr, hasAffs); }}
+                          onClick={() => { if (!blocked && selectedCon && canRead) onFirstClick(dateStr, hasAffs); }}
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
                           style={{ background:blocked?GRAY:(jStyle?.bg||"white"), border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
                         >
@@ -636,6 +636,11 @@ export default function AnnualPlanner() {
   const [selectedCon, setSelectedCon]   = useState<string>("");
   // canEdit : vrai si admin, ou si writableSultantIds est null (admin),
   // ou si le consultant sélectionné est dans la liste des modifiables
+  const canReadSelected = !access.loading && (
+    access.isAdmin ||
+    access.allowedSultantIds === null ||
+    (selectedCon !== "" && (access.allowedSultantIds?.includes(selectedCon) ?? false))
+  );
   const canEditSelected = !access.loading && (
     access.isAdmin ||
     access.writableSultantIds === null ||
@@ -712,7 +717,7 @@ export default function AnnualPlanner() {
     itemId: string, type: "mission"|"absence",
     periode: "journee"|"matin"|"aprem", existingId?: string
   ) => {
-    if (!modalDate || !selectedCon) return;
+    if (!modalDate || !selectedCon || !canEditSelected) return;
     const payload = type==="mission" ? { Mission:itemId, Absence:null } : { Absence:itemId, Mission:null };
     if (existingId) {
       const { error } = await supabase.from("Affectation").update(payload).eq("id",existingId);
@@ -770,8 +775,8 @@ export default function AnnualPlanner() {
 
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
-          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} onFirstClick={handleDayClick} />
+          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} onFirstClick={handleDayClick} />
         }
       </div>
 
