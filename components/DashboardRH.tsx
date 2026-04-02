@@ -58,7 +58,7 @@ export default function DashboardRH() {
         supabase.from("CompteurConge").select("sultant_id,annee,code,initial,acquisition").eq("annee",year),
       ]);
       setConsultants(s||[]); setAbsences(ab||[]);
-      setAffectations((a as Affectation[])||[]); setCompteurs(c||[]);
+      setAffectations((a as unknown as Affectation[])||[]); setCompteurs(c||[]);
       setLoading(false);
     };
     load();

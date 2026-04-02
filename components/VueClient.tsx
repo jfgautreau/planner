@@ -85,7 +85,7 @@ export default function VueClient() {
         supabase.from("CongeJour").select("date,zone_a,zone_b,zone_c").gte("date", dateMin).lte("date", dateMax),
       ]);
       setConsultants(s||[]); setMissions(m||[]);
-      setAffectations((a as Affectation[])||[]);
+      setAffectations((a as unknown as Affectation[])||[]);
       setJoursFeries(jf||[]); setConges(cj||[]);
       setLoading(false);
     };

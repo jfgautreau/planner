@@ -58,7 +58,7 @@ export default function DashboardProd() {
         supabase.from("Objectif").select("sultant_id,annee,mois,jours").eq("annee",year),
       ]);
       setConsultants(s||[]); setMissions(m||[]);
-      setAffectations((a as Affectation[])||[]); setObjectifs(o||[]);
+      setAffectations((a as unknown as Affectation[])||[]); setObjectifs(o||[]);
       setLoading(false);
     };
     load();
