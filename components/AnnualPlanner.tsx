@@ -636,15 +636,15 @@ export default function AnnualPlanner() {
   const [selectedCon, setSelectedCon]   = useState<string>("");
   // canEdit : vrai si admin, ou si writableSultantIds est null (admin),
   // ou si le consultant sélectionné est dans la liste des modifiables
-  const canReadSelected = !access.loading && (
-    access.isAdmin ||
+  // Peut voir : admin, ou sultant_id dans la liste lisible, ou liste null (admin)
+  const canReadSelected = !access.loading && selectedCon !== "" && (
     access.allowedSultantIds === null ||
-    (selectedCon !== "" && (access.allowedSultantIds?.includes(selectedCon) ?? false))
+    access.allowedSultantIds.includes(selectedCon)
   );
-  const canEditSelected = !access.loading && (
-    access.isAdmin ||
+  // Peut modifier : admin, ou sultant_id dans la liste modifiable, ou liste null (admin)
+  const canEditSelected = !access.loading && selectedCon !== "" && (
     access.writableSultantIds === null ||
-    (selectedCon !== "" && (access.writableSultantIds?.includes(selectedCon) ?? false))
+    (access.writableSultantIds?.includes(selectedCon) ?? false)
   );
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [missions, setMissions]         = useState<Mission[]>([]);
@@ -747,6 +747,10 @@ export default function AnnualPlanner() {
   }, []);
 
   const subBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
+
+  // DEBUG TEMPORAIRE
+  console.log("ACCESS", JSON.stringify({ role: access.role, isAdmin: access.isAdmin, loading: access.loading, allowedSultantIds: access.allowedSultantIds, writableSultantIds: access.writableSultantIds }));
+  console.log("canReadSelected", canReadSelected, "canEditSelected", canEditSelected, "selectedCon", selectedCon);
 
   return (
     <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
