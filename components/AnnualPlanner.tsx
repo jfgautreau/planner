@@ -48,6 +48,7 @@ function getAffStyle(aff: Affectation) {
 // ── Navbar fixe ──────────────────────────────────────────────────────────────
 export function FixedNav({ activePath }: { activePath: string }) {
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
   const s = (path: string): React.CSSProperties => ({
     padding:"0.45rem 1rem", border:"none", borderRadius:4, cursor:"pointer",
     background: activePath===path ? "white" : "transparent",
@@ -58,18 +59,53 @@ export function FixedNav({ activePath }: { activePath: string }) {
     await supabase.auth.signOut();
     router.push("/login");
   };
+  const navLinks = [
+    { path:"/",             label:"📆 Calendrier" },
+    { path:"/client",       label:"👥 Vue Client" },
+    { path:"/dashboardprod",label:"📊 TdB Prod" },
+    { path:"/dashboardrh",  label:"📊 TdB RH" },
+    { path:"/settings",     label:"⚙️ Paramètres" },
+  ];
   return (
-    <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
-      <span style={{ color:"white", fontWeight:"bold", fontSize:"1rem", marginRight:"0.8rem" }}>📅 Planner</span>
-      <button onClick={() => router.push("/")}               style={s("/")}>📆 Calendrier</button>
-      <button onClick={() => router.push("/client")}         style={s("/client")}>👥 Vue Client</button>
-      <button onClick={() => router.push("/dashboardprod")}  style={s("/dashboardprod")}>📊 TdB Prod</button>
-      <button onClick={() => router.push("/dashboardrh")}    style={s("/dashboardrh")}>📊 TdB RH</button>
-      <button onClick={() => router.push("/settings")}       style={s("/settings")}>⚙️ Paramètres</button>
-      <button onClick={logout} style={{ marginLeft:"auto", padding:"0.3rem 0.8rem", background:"#e74c3c", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
-        🚪 Déconnexion
-      </button>
-    </div>
+    <>
+      <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
+        <span style={{ color:"white", fontWeight:"bold", fontSize:"1rem", marginRight:"0.8rem" }}>📅 Planner</span>
+        {/* Desktop : liens visibles */}
+        <div style={{ display:"flex", gap:"0.3rem", flex:1 }} className="nav-desktop">
+          {navLinks.map(l => (
+            <button key={l.path} onClick={() => router.push(l.path)} style={s(l.path)}>{l.label}</button>
+          ))}
+        </div>
+        {/* Déconnexion desktop */}
+        <button onClick={logout} className="nav-desktop" style={{ marginLeft:"auto", padding:"0.3rem 0.8rem", background:"#82B2C0", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
+          🚪 Déconnexion
+        </button>
+        {/* Hamburger mobile */}
+        <button onClick={() => setMenuOpen(o => !o)} className="nav-mobile" style={{ marginLeft:"auto", background:"none", border:"none", color:"white", fontSize:"1.5rem", cursor:"pointer", padding:"0.2rem 0.4rem", lineHeight:1 }}>
+          {menuOpen ? "✕" : "☰"}
+        </button>
+      </div>
+      {/* Menu mobile déroulant */}
+      {menuOpen && (
+        <div className="nav-mobile" style={{ position:"fixed", top:46, left:0, right:0, background:NAVY, zIndex:499, boxShadow:"0 4px 12px rgba(0,0,0,0.3)", borderTop:"1px solid rgba(255,255,255,0.1)" }}>
+          {navLinks.map(l => (
+            <button key={l.path} onClick={() => { router.push(l.path); setMenuOpen(false); }} style={{
+              display:"block", width:"100%", padding:"0.9rem 1.2rem", border:"none", borderBottom:"1px solid rgba(255,255,255,0.08)",
+              background: activePath===l.path ? "rgba(255,255,255,0.15)" : "transparent",
+              color:"white", fontWeight: activePath===l.path ? "bold" : "normal",
+              cursor:"pointer", fontSize:"0.95rem", textAlign:"left",
+            }}>{l.label}</button>
+          ))}
+          <button onClick={logout} style={{ display:"block", width:"100%", padding:"0.9rem 1.2rem", border:"none", background:"transparent", color:"#f1948a", cursor:"pointer", fontSize:"0.95rem", textAlign:"left", fontWeight:"bold" }}>
+            🚪 Déconnexion
+          </button>
+        </div>
+      )}
+      <style>{`
+        @media (min-width: 640px) { .nav-mobile { display: none !important; } }
+        @media (max-width: 639px) { .nav-desktop { display: none !important; } }
+      `}</style>
+    </>
   );
 }
 
@@ -684,24 +720,28 @@ export default function AnnualPlanner() {
   const subBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
 
   return (
-    <div style={{ paddingTop:58 }}>
+    <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
       <FixedNav activePath={pathname||"/"} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
-        <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
-        <span style={{ fontWeight:"bold", minWidth:42, textAlign:"center", fontSize:"0.9rem" }}>{year}</span>
-        <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
-        {year!==today && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }}>Aujourd'hui</button>}
-        <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", marginLeft:"0.5rem" }}>
+        {!isMobile && <>
+          <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
+          <span style={{ fontWeight:"bold", minWidth:42, textAlign:"center", fontSize:"0.9rem" }}>{year}</span>
+          <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
+          {year!==today && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }}>Aujourd&apos;hui</button>}
+        </>}
+        <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset" }}>
           <option value="">-- Consultant --</option>
           {consultants.map(c => <option key={c.id} value={c.id}>{c.Nom} {c.Prénom}</option>)}
         </select>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:"0.6rem", marginLeft:"auto", fontSize:"0.7rem", alignItems:"center" }}>
-          <span><Sw bg={GRAY}/>WE/Férié</span>
-          {(["A","B","C"] as const).map(z=><span key={z}><Sw bg={ZONE_COLORS[z]}/>Zone {z}</span>)}
-          <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
-            <span style={{ display:"inline-block", width:13, height:13, background:"#eee", border:"1px solid #ccc", position:"relative", overflow:"hidden", verticalAlign:"middle" }}><CopilCorner /></span> COPIL
-          </span>
-        </div>
+        {!isMobile && (
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"0.6rem", marginLeft:"auto", fontSize:"0.7rem", alignItems:"center" }}>
+            <span><Sw bg={GRAY}/>WE/Férié</span>
+            {(["A","B","C"] as const).map(z=><span key={z}><Sw bg={ZONE_COLORS[z]}/>Zone {z}</span>)}
+            <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
+              <span style={{ display:"inline-block", width:13, height:13, background:"#eee", border:"1px solid #ccc", position:"relative", overflow:"hidden", verticalAlign:"middle" }}><CopilCorner /></span> COPIL
+            </span>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
