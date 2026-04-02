@@ -26,7 +26,7 @@ export default function ObjectifForm() {
     supabase.from("Objectif").select("mois,jours").eq("sultant_id",selCon).eq("annee",year)
       .then(({ data })=>{
         const map:Record<number,number> = {};
-        (data||[]).forEach((o:Objectif)=>{ map[o.mois]=o.jours; });
+        (data||[]).forEach((o)=>{ map[o.mois]=o.jours; });
         setObjectifs(map);
       });
   },[selCon,year]);
