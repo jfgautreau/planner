@@ -634,7 +634,13 @@ export default function AnnualPlanner() {
   const access = useAccess();
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
   const [selectedCon, setSelectedCon]   = useState<string>("");
-  const canEditSelected = access.isAdmin || (access.writableSultantIds?.includes(selectedCon) ?? false);
+  // canEdit : vrai si admin, ou si writableSultantIds est null (admin),
+  // ou si le consultant sélectionné est dans la liste des modifiables
+  const canEditSelected = !access.loading && (
+    access.isAdmin ||
+    access.writableSultantIds === null ||
+    (selectedCon !== "" && (access.writableSultantIds?.includes(selectedCon) ?? false))
+  );
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [missions, setMissions]         = useState<Mission[]>([]);
   const [absences, setAbsences]         = useState<Absence[]>([]);
