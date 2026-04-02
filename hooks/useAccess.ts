@@ -35,17 +35,15 @@ export function useAccess(): AccessInfo {
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log("USERACCESS USER", user?.id ?? "null - pas connecté");
       if (!user) {
         setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: null });
         return;
       }
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("UserAccess")
         .select("role, can_read, can_write, sultant_id")
         .eq("user_id", user.id);
-      console.log("USERACCESS RAW", JSON.stringify({ data, error, userId: user.id }));
 
       if (!data || data.length === 0) {
         setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: user.id });

@@ -748,9 +748,6 @@ export default function AnnualPlanner() {
 
   const subBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
 
-  // DEBUG TEMPORAIRE
-  console.log("ACCESS", JSON.stringify({ role: access.role, isAdmin: access.isAdmin, loading: access.loading, allowedSultantIds: access.allowedSultantIds, writableSultantIds: access.writableSultantIds }));
-  console.log("canReadSelected", canReadSelected, "canEditSelected", canEditSelected, "selectedCon", selectedCon);
 
   return (
     <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
