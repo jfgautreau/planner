@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+type Consultant = { Nom: string; Prénom: string };
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const sultantId = searchParams.get("sultant");
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
   );
 
   const [{ data: consultant }, { data: affectations }] = await Promise.all([
-    supabase.from("Sultant").select("Nom,Prénom").eq("id", sultantId).single(),
+    supabase.from("Sultant").select("Nom,Prénom").eq("id", sultantId).single<Consultant>(),
     supabase.from("Affectation")
       .select(`Date,periode,copil,mission:Mission(Code,Client,Color),absence:Absence(code,nom)`)
       .eq("Sultant", sultantId)
