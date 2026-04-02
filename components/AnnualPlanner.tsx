@@ -475,7 +475,7 @@ export default function AnnualPlanner() {
     supabase.from("Affectation")
       .select(`id,Date,Mission,Absence,Sultant,periode,copil,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
       .eq("Sultant", selectedCon).gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`)
-      .then(({ data }) => setAffectations((data as Affectation[])||[]));
+      .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
 
   const handleDayClick = useCallback((ds: string, hasAffs: boolean) => {
@@ -502,7 +502,7 @@ export default function AnnualPlanner() {
         .select(`id,Date,Mission,Absence,Sultant,periode,copil,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (error) return;
-      setAffectations(prev => [...prev, data as Affectation]);
+      setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
   }, [modalDate, selectedCon, missions, absences]);
 
