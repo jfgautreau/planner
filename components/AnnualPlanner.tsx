@@ -293,11 +293,11 @@ function useIsMobile() {
 type MobileCalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string;
+  selectedCon: string; canEdit: boolean;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, onFirstClick }: MobileCalViewProps) {
+function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, onFirstClick }: MobileCalViewProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const dim = (mi: number) => new Date(year, mi + 1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -360,7 +360,7 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, o
           return (
             <div
               key={dayNum}
-              onClick={() => { if (!blocked && selectedCon && access.canEdit) onFirstClick(dateStr, hasAffs); }}
+              onClick={() => { if (!blocked && selectedCon && canEdit) onFirstClick(dateStr, hasAffs); }}
               style={{
                 borderRadius:6,
                 border: isToday ? `2px solid ${NAVY}` : "1px solid #e0e0e0",
@@ -437,11 +437,11 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, o
 type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string;
+  selectedCon: string; canEdit: boolean;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const getAffs = (s: string) => affectations.filter(a => a.Date.startsWith(s));
@@ -582,7 +582,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, onFirst
 
                         {/* Cellule mission */}
                         <td
-                          onClick={() => { if (!blocked && selectedCon && access.canEdit) onFirstClick(dateStr, hasAffs); }}
+                          onClick={() => { if (!blocked && selectedCon && canEdit) onFirstClick(dateStr, hasAffs); }}
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
                           style={{ background:blocked?GRAY:(jStyle?.bg||"white"), border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
                         >
@@ -652,7 +652,6 @@ export default function AnnualPlanner() {
 
   useEffect(() => {
     if (access.loading) return;
-    // Si consultant : sélectionner automatiquement son profil
     if (access.role === "consultant" && access.allowedSultantIds?.length === 1) {
       setSelectedCon(access.allowedSultantIds[0]);
     } else {
@@ -666,9 +665,8 @@ export default function AnnualPlanner() {
   useEffect(() => {
     supabase.from("Sultant").select("*").then(({ data }) => {
       const all = data || [];
-      // Filtrer selon les droits
       if (access.allowedSultantIds === null) {
-        setConsultants(all); // admin
+        setConsultants(all);
       } else {
         setConsultants(all.filter(s => access.allowedSultantIds!.includes(s.id)));
       }
@@ -765,8 +763,8 @@ export default function AnnualPlanner() {
 
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
-          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={access.canEdit ? handleDayClick : ()=>{}} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={access.canEdit ? handleDayClick : ()=>{}} />
+          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={access.canEdit} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={access.canEdit} onFirstClick={handleDayClick} />
         }
       </div>
 
