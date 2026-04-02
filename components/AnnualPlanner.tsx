@@ -632,10 +632,9 @@ export default function AnnualPlanner() {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const access = useAccess();
-  // Est-ce que l'utilisateur peut modifier le consultant sélectionné ?
-  const canEditSelected = access.isAdmin || (access.writableSultantIds?.includes(selectedCon) ?? false);
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
   const [selectedCon, setSelectedCon]   = useState<string>("");
+  const canEditSelected = access.isAdmin || (access.writableSultantIds?.includes(selectedCon) ?? false);
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [missions, setMissions]         = useState<Mission[]>([]);
   const [absences, setAbsences]         = useState<Absence[]>([]);
@@ -668,7 +667,7 @@ export default function AnnualPlanner() {
     supabase.from("Sultant").select("*").then(({ data }) => {
       const all = data || [];
       if (access.allowedSultantIds === null) {
-        setConsultants(all); // admin
+        setConsultants(all);
       } else {
         setConsultants(all.filter(s => access.allowedSultantIds!.includes(s.id)));
       }
@@ -748,7 +747,7 @@ export default function AnnualPlanner() {
           <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
           {year!==today && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }}>Aujourd&apos;hui</button>}
         </>}
-        <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} disabled={access.role==="consultant" || (access.allowedSultantIds !== null && access.allowedSultantIds.length <= 1)} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset", opacity: (access.role==="consultant" || (access.allowedSultantIds !== null && access.allowedSultantIds.length <= 1)) ? 0.7 : 1 }}>
+        <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} disabled={access.role==="consultant"} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset", opacity: access.role==="consultant" ? 0.7 : 1 }}>
           <option value="">-- Consultant --</option>
           {consultants.map(c => <option key={c.id} value={c.id}>{c.Nom} {c.Prénom}</option>)}
         </select>
