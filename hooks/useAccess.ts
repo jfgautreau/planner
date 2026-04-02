@@ -35,6 +35,7 @@ export function useAccess(): AccessInfo {
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log("USERACCESS USER", user?.id ?? "null - pas connecté");
       if (!user) {
         setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: null });
         return;
