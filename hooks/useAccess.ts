@@ -40,10 +40,11 @@ export function useAccess(): AccessInfo {
         return;
       }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("UserAccess")
         .select("role, can_read, can_write, sultant_id")
         .eq("user_id", user.id);
+      console.log("USERACCESS RAW", JSON.stringify({ data, error, userId: user.id }));
 
       if (!data || data.length === 0) {
         setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: user.id });
