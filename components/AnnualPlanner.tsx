@@ -239,6 +239,163 @@ const optBtn = (color: string): React.CSSProperties => ({
   background:"white", color, cursor:"pointer", fontWeight:"bold", fontSize:"0.72rem",
 });
 
+
+// ── Hook mobile ───────────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
+// ── Vue mobile : grille mois compacte ────────────────────────────────────────
+type MobileCalViewProps = {
+  year: number; affectations: Affectation[];
+  joursFeries: JourFerie[]; conges: CongeJour[];
+  selectedCon: string;
+  onFirstClick: (ds: string, hasAffs: boolean) => void;
+};
+
+function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, onFirstClick }: MobileCalViewProps) {
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const dim = (mi: number) => new Date(year, mi + 1, 0).getDate();
+  const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const getAffs = (s: string) => affectations.filter(a => a.Date.startsWith(s));
+  const getJF   = (s: string) => joursFeries.find(j => j.date === s);
+  const congeMap = React.useMemo(() => { const m = new Map<string,CongeJour>(); conges.forEach(c => m.set(c.date, c)); return m; }, [conges]);
+
+  const mi = currentMonth;
+  const firstDow = new Date(`${ds(mi,1)}T12:00:00`).getDay(); // 0=dim
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // lundi en premier
+  const days = Array.from({ length: dim(mi) }, (_, i) => i + 1);
+
+  const navBtn: React.CSSProperties = { padding:"0.4rem 0.8rem", border:"none", background:"transparent", fontSize:"1.2rem", cursor:"pointer", color:NAVY };
+
+  return (
+    <div style={{ padding:"0 0.5rem 1rem" }}>
+      {/* Sélecteur de mois */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"0.8rem", padding:"0.3rem 0" }}>
+        <button onClick={() => setCurrentMonth(m => m === 0 ? 11 : m - 1)} style={navBtn}>◀</button>
+        <span style={{ fontWeight:"bold", fontSize:"1.1rem", color:NAVY }}>{months[mi]} {year}</span>
+        <button onClick={() => setCurrentMonth(m => m === 11 ? 0 : m + 1)} style={navBtn}>▶</button>
+      </div>
+
+      {/* En-têtes jours de la semaine */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:2 }}>
+        {["L","M","M","J","V","S","D"].map((d,i) => (
+          <div key={i} style={{ textAlign:"center", fontSize:"0.72rem", fontWeight:"bold", color:i>=5?"#e74c3c":"#555", padding:"0.2rem 0" }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Grille jours */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
+        {/* Cases vides avant le 1er */}
+        {Array.from({ length: startOffset }, (_,i) => (
+          <div key={`e${i}`} />
+        ))}
+
+        {days.map(dayNum => {
+          const dateStr = ds(mi, dayNum);
+          const dow     = new Date(`${dateStr}T12:00:00`).getDay();
+          const isWeekend = dow === 0 || dow === 6;
+          const ferie   = getJF(dateStr);
+          const conge   = congeMap.get(dateStr);
+          const blocked = isWeekend || !!ferie;
+          const affs    = getAffs(dateStr);
+          const hasAffs = affs.length > 0;
+          const journee = affs.find(a => a.periode === "journee");
+          const matin   = affs.find(a => a.periode === "matin");
+          const aprem   = affs.find(a => a.periode === "aprem");
+          const today   = new Date().toISOString().slice(0,10);
+          const isToday = dateStr === today;
+          const zA = conge?.zone_a || false;
+          const zB = conge?.zone_b || false;
+          const zC = conge?.zone_c || false;
+          const hasZone = zA || zB || zC;
+
+          let bg = "white";
+          if (blocked) bg = "#e8e8e8";
+
+          return (
+            <div
+              key={dayNum}
+              onClick={() => { if (!blocked && selectedCon) onFirstClick(dateStr, hasAffs); }}
+              style={{
+                borderRadius:6,
+                border: isToday ? `2px solid ${NAVY}` : "1px solid #e0e0e0",
+                background: bg,
+                minHeight:52,
+                cursor: selectedCon && !blocked ? "pointer" : "default",
+                overflow:"hidden",
+                position:"relative",
+                display:"flex",
+                flexDirection:"column",
+              }}
+            >
+              {/* Numéro du jour */}
+              <div style={{
+                fontSize:"0.7rem", fontWeight: isToday ? "bold" : "normal",
+                color: blocked ? "#aaa" : isToday ? NAVY : "#333",
+                padding:"2px 4px",
+                lineHeight:1,
+              }}>{dayNum}</div>
+
+              {/* Indicateur zones vacances (bande colorée fine en haut) */}
+              {hasZone && !blocked && (
+                <div style={{ display:"flex", height:3, position:"absolute", top:0, left:0, right:0 }}>
+                  {zA && <div style={{ flex:1, background:ZONE_COLORS.A }} />}
+                  {zB && <div style={{ flex:1, background:ZONE_COLORS.B }} />}
+                  {zC && <div style={{ flex:1, background:ZONE_COLORS.C }} />}
+                </div>
+              )}
+
+              {/* Jour férié */}
+              {ferie && (
+                <div style={{ fontSize:"0.48rem", color:"#888", padding:"0 3px", lineHeight:1.2, flex:1 }}>
+                  {ferie.nom.slice(0,12)}
+                </div>
+              )}
+
+              {/* Affectation journée entière */}
+              {!blocked && journee && (() => {
+                const st = getAffStyle(journee);
+                return (
+                  <div style={{ flex:1, background:st.bg, display:"flex", alignItems:"center", justifyContent:"center", position:"relative", margin:"1px", borderRadius:4 }}>
+                    {journee.copil && <CopilCorner />}
+                    <span style={{ color:st.text, fontWeight:"bold", fontSize:"0.65rem" }}>{st.code}</span>
+                  </div>
+                );
+              })()}
+
+              {/* Demi-journées */}
+              {!blocked && !journee && (matin || aprem) && (
+                <div style={{ display:"flex", flex:1, margin:"1px", gap:1 }}>
+                  {(() => { const st = matin ? getAffStyle(matin) : null; return (
+                    <div style={{ flex:1, background:st?.bg||"#f0f0f0", borderRadius:3, display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                      {matin?.copil && <CopilCorner />}
+                      {matin && st && <span style={{ color:st.text, fontWeight:"bold", fontSize:"0.55rem" }}>{st.code}</span>}
+                    </div>
+                  );})()}
+                  {(() => { const st = aprem ? getAffStyle(aprem) : null; return (
+                    <div style={{ flex:1, background:st?.bg||"#f0f0f0", borderRadius:3, display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                      {aprem?.copil && <CopilCorner />}
+                      {aprem && st && <span style={{ color:st.text, fontWeight:"bold", fontSize:"0.55rem" }}>{st.code}</span>}
+                    </div>
+                  );})()}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── CalView ──────────────────────────────────────────────────────────────────
 type CalViewProps = {
   year: number; affectations: Affectation[];
@@ -436,6 +593,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, onFirst
 // ── Composant principal ───────────────────────────────────────────────────────
 export default function AnnualPlanner() {
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
   const [selectedCon, setSelectedCon]   = useState<string>("");
   const [affectations, setAffectations] = useState<Affectation[]>([]);
@@ -528,7 +686,7 @@ export default function AnnualPlanner() {
   return (
     <div style={{ paddingTop:58 }}>
       <FixedNav activePath={pathname||"/"} />
-      <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 1.2rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
         <span style={{ fontWeight:"bold", minWidth:42, textAlign:"center", fontSize:"0.9rem" }}>{year}</span>
         <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
@@ -546,8 +704,11 @@ export default function AnnualPlanner() {
         </div>
       </div>
 
-      <div style={{ padding:"0.8rem 1rem" }}>
-        <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={handleDayClick} />
+      <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
+        {isMobile
+          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={handleDayClick} />
+        }
       </div>
 
       {/* Modale 1er clic : choisir mission */}
