@@ -54,6 +54,10 @@ export function FixedNav({ activePath }: { activePath: string }) {
     color: activePath===path ? NAVY : "rgba(255,255,255,0.8)",
     fontWeight:"bold", fontSize:"0.82rem",
   });
+  const logout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
       <span style={{ color:"white", fontWeight:"bold", fontSize:"1rem", marginRight:"0.8rem" }}>📅 Planner</span>
@@ -62,6 +66,9 @@ export function FixedNav({ activePath }: { activePath: string }) {
       <button onClick={() => router.push("/dashboardprod")}  style={s("/dashboardprod")}>📊 TdB Prod</button>
       <button onClick={() => router.push("/dashboardrh")}    style={s("/dashboardrh")}>📊 TdB RH</button>
       <button onClick={() => router.push("/settings")}       style={s("/settings")}>⚙️ Paramètres</button>
+      <button onClick={logout} style={{ marginLeft:"auto", padding:"0.3rem 0.8rem", background:"#e74c3c", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
+        🚪 Déconnexion
+      </button>
     </div>
   );
 }
