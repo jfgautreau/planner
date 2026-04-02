@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Sultant  = { id:string; Nom:string; Prénom:string };
@@ -31,14 +31,14 @@ export default function ObjectifForm() {
       });
   },[selCon,year]);
 
-  const save = async () => {
+  const save = useCallback(async () => {
     if (!selCon) { setMsg("Sélectionne un consultant."); return; }
     setSaving(true); setMsg("");
     const rows = months.map((_,i)=>({ sultant_id:selCon, annee:year, mois:i+1, jours:objectifs[i+1]??0 }));
     const { error } = await supabase.from("Objectif").upsert(rows,{ onConflict:"sultant_id,annee,mois" });
     setSaving(false);
     if (error) { setMsg(`❌ ${error.message}`); } else { setMsg("✅ Objectifs enregistrés."); }
-  };
+  }, [selCon, year, objectifs]);
 
   const navBtn:React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white" };
 

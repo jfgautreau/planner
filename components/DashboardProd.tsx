@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { FixedNav } from "@/components/AnnualPlanner";
@@ -66,7 +66,7 @@ export default function DashboardProd() {
 
   const clients = useMemo(()=>Array.from(new Set(missions.map(m=>m.Client))).sort(),[missions]);
   const missionCodes = useMemo(()=>missions.filter((m,i,arr)=>arr.findIndex(x=>x.Code===m.Code)===i).sort((a,b)=>a.Code.localeCompare(b.Code)),[missions]);
-  const toggle = <T,>(l:T[], x:T)=>l.includes(x)?l.filter(i=>i!==x):[...l,x];
+  const toggle = useCallback(<T,>(l:T[], x:T)=>l.includes(x)?l.filter(i=>i!==x):[...l,x], []);
 
   const filteredMissions = useMemo(()=>affectations.filter(a=>{
     if (!a.mission) return false;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Sultant = { id: string; Nom: string; Prénom: string };
@@ -36,7 +36,7 @@ export default function UserAccessForm() {
   const [newRole, setNewRole]             = useState<"admin"|"chef_mission"|"consultant">("consultant");
   const [newSultantId, setNewSultantId]   = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const [{ data: s }, { data: a }] = await Promise.all([
       supabase.from("Sultant").select("id,Nom,Prénom").order("Nom"),
@@ -52,9 +52,9 @@ export default function UserAccessForm() {
     });
     setUserEntries(Array.from(byUser.values()));
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const addUser = async () => {
     if (!newUserId.trim()) { setMsg("⚠️ Saisis un User ID."); return; }
@@ -75,29 +75,29 @@ export default function UserAccessForm() {
     load(); setSaving(false);
   };
 
-  const toggle = async (row: AccessRow, field: "can_read"|"can_write", value: boolean) => {
+  const toggle = useCallback(async (row: AccessRow, field: "can_read"|"can_write", value: boolean) => {
     if (row.role === "consultant" || row.role === "admin") return;
     const updates: Record<string, boolean> = { [field]: value };
     if (field === "can_write" && value) updates.can_read = true;
     if (field === "can_read" && !value) updates.can_write = false;
     await supabase.from("UserAccess").update(updates).eq("id", row.id);
     load();
-  };
+  }, [load]);
 
   const addSultantAccess = async (userId: string, sultantId: string) => {
     await supabase.from("UserAccess").insert({ user_id: userId, sultant_id: sultantId, role: "chef_mission", can_read: true, can_write: false });
     load();
   };
 
-  const removeRow = async (id: string) => { await supabase.from("UserAccess").delete().eq("id", id); load(); };
+  const removeRow = useCallback(async (id: string) => { await supabase.from("UserAccess").delete().eq("id", id); load(); }, [load]);
 
-  const removeUser = async (userId: string) => {
+  const removeUser = useCallback(async (userId: string) => {
     if (!confirm("Supprimer tous les droits de cet utilisateur ?")) return;
     await supabase.from("UserAccess").delete().eq("user_id", userId);
     load();
-  };
+  }, [load]);
 
-  const sultantName = (id: string) => { const s = sultants.find(s => s.id === id); return s ? `${s.Nom} ${s.Prénom}` : id.slice(0, 8); };
+  const sultantName = useCallback((id: string) => { const s = sultants.find(s => s.id === id); return s ? `${s.Nom} ${s.Prénom}` : id.slice(0, 8); }, [sultants]);
   const inp: React.CSSProperties = { padding: "0.4rem 0.7rem", border: "1px solid #ccc", borderRadius: 4, fontSize: "0.85rem", width: "100%" };
 
   if (loading) return <div style={{ padding: "1rem", color: "#888" }}>Chargement...</div>;

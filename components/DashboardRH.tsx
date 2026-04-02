@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { FixedNav } from "@/components/AnnualPlanner";
@@ -64,7 +64,7 @@ export default function DashboardRH() {
     load();
   },[year]);
 
-  const toggle = <T,>(l:T[], x:T)=>l.includes(x)?l.filter(i=>i!==x):[...l,x];
+  const toggle = useCallback(<T,>(l:T[], x:T)=>l.includes(x)?l.filter(i=>i!==x):[...l,x], []);
 
   const filteredAll = useMemo(()=>affectations.filter(a=>{
     if (!a.absence) return false;

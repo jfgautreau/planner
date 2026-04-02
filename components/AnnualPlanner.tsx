@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAccess } from "@/hooks/useAccess";
@@ -56,10 +56,10 @@ export function FixedNav({ activePath }: { activePath: string }) {
     color: activePath===path ? NAVY : "rgba(255,255,255,0.8)",
     fontWeight:"bold", fontSize:"0.82rem",
   });
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await supabase.auth.signOut();
     router.push("/login");
-  };
+  }, [router]);
   const navLinks = [
     { path:"/",             label:"📆 Calendrier" },
     { path:"/client",       label:"👥 Vue Client" },
@@ -304,8 +304,18 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, c
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const dim = (mi: number) => new Date(year, mi + 1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  const getAffs = (s: string) => affectations.filter(a => a.Date.startsWith(s));
-  const getJF   = (s: string) => joursFeries.find(j => j.date === s);
+  const affMap = useMemo(() => {
+    const m = new Map<string, Affectation[]>();
+    affectations.forEach(a => {
+      const key = a.Date.slice(0, 10);
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(a);
+    });
+    return m;
+  }, [affectations]);
+  const getAffs = (s: string) => affMap.get(s) ?? [];
+  const jfMap   = useMemo(() => { const m = new Map<string,JourFerie>(); joursFeries.forEach(j => m.set(j.date, j)); return m; }, [joursFeries]);
+  const getJF   = (s: string) => jfMap.get(s);
   const congeMap = React.useMemo(() => { const m = new Map<string,CongeJour>(); conges.forEach(c => m.set(c.date, c)); return m; }, [conges]);
 
   const mi = currentMonth;
@@ -447,8 +457,18 @@ type CalViewProps = {
 function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  const getAffs = (s: string) => affectations.filter(a => a.Date.startsWith(s));
-  const getJF   = (s: string) => joursFeries.find(j => j.date===s);
+  const affMap = useMemo(() => {
+    const m = new Map<string, Affectation[]>();
+    affectations.forEach(a => {
+      const key = a.Date.slice(0, 10);
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(a);
+    });
+    return m;
+  }, [affectations]);
+  const getAffs = (s: string) => affMap.get(s) ?? [];
+  const jfMap   = useMemo(() => { const m = new Map<string,JourFerie>(); joursFeries.forEach(j => m.set(j.date, j)); return m; }, [joursFeries]);
+  const getJF   = (s: string) => jfMap.get(s);
 
   // Map date → CongeJour pour lookup O(1)
   const congeMap = React.useMemo(() => {
@@ -630,6 +650,8 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
   );
 }
 
+const subBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
+
 // ── Composant principal ───────────────────────────────────────────────────────
 export default function AnnualPlanner() {
   const pathname = usePathname();
@@ -678,17 +700,20 @@ export default function AnnualPlanner() {
   useEffect(() => { localStorage.setItem(LS_YEAR, String(year)); }, [year]);
 
   useEffect(() => {
-    supabase.from("Sultant").select("*").then(({ data }) => {
-      const all = data || [];
-      if (access.allowedSultantIds === null) {
-        setConsultants(all);
-      } else {
-        setConsultants(all.filter(s => access.allowedSultantIds!.includes(s.id)));
-      }
+    Promise.all([
+      supabase.from("Sultant").select("*"),
+      supabase.from("Mission").select("*"),
+      supabase.from("Absence").select("*"),
+    ]).then(([{ data: s }, { data: m }, { data: ab }]) => {
+      const all = s || [];
+      setConsultants(access.allowedSultantIds === null
+        ? all
+        : all.filter(su => access.allowedSultantIds!.includes(su.id))
+      );
+      setMissions(m || []);
+      setAbsences(ab || []);
     });
-    supabase.from("Mission").select("*").then(({ data }) => setMissions(data||[]));
-    supabase.from("Absence").select("*").then(({ data }) => setAbsences(data||[]));
-  }, []);
+  }, [access.loading, access.allowedSultantIds]);
 
   useEffect(() => {
     supabase.from("JourFerie").select("date,nom")
@@ -749,7 +774,7 @@ export default function AnnualPlanner() {
     setAffectations(prev => prev.map(a => a.id===aff.id?{...a,copil:!aff.copil}:a));
   }, []);
 
-  const subBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
+
 
 
   return (
