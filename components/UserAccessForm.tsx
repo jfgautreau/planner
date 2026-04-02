@@ -36,7 +36,7 @@ export default function UserAccessForm() {
       supabase.from("Sultant").select("id,Nom,Prénom").order("Nom"),
       supabase.from("UserAccess").select("id,user_id,sultant_id,role,can_edit"),
     ]);
-    setSultants(s || []);
+    setSultants((s as unknown as Sultant[]) || []);
     setAccesses((a || []) as AccessRow[]);
 
     // Charger les emails via la fonction admin (nécessite service role)
