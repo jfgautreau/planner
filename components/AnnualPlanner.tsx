@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useAccess } from "@/hooks/useAccess";
 
 type Sultant     = { id: string; Nom: string; Prénom: string };
 type Mission     = { id: string; Client: string; Mission: string; Code: string; Color: string; TextColor: string };
@@ -359,7 +360,7 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, o
           return (
             <div
               key={dayNum}
-              onClick={() => { if (!blocked && selectedCon) onFirstClick(dateStr, hasAffs); }}
+              onClick={() => { if (!blocked && selectedCon && access.canEdit) onFirstClick(dateStr, hasAffs); }}
               style={{
                 borderRadius:6,
                 border: isToday ? `2px solid ${NAVY}` : "1px solid #e0e0e0",
@@ -581,7 +582,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, onFirst
 
                         {/* Cellule mission */}
                         <td
-                          onClick={() => { if (!blocked && selectedCon) onFirstClick(dateStr, hasAffs); }}
+                          onClick={() => { if (!blocked && selectedCon && access.canEdit) onFirstClick(dateStr, hasAffs); }}
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
                           style={{ background:blocked?GRAY:(jStyle?.bg||"white"), border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
                         >
@@ -630,6 +631,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, onFirst
 export default function AnnualPlanner() {
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const access = useAccess();
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
   const [selectedCon, setSelectedCon]   = useState<string>("");
   const [affectations, setAffectations] = useState<Affectation[]>([]);
@@ -648,12 +650,29 @@ export default function AnnualPlanner() {
   const [addPeriode, setAddPeriode] = useState<"journee"|"matin"|"aprem">("journee");
   const today = new Date().getFullYear();
 
-  useEffect(() => { const s = localStorage.getItem(LS_CON); if (s) setSelectedCon(s); }, []);
+  useEffect(() => {
+    if (access.loading) return;
+    // Si consultant : sélectionner automatiquement son profil
+    if (access.role === "consultant" && access.allowedSultantIds?.length === 1) {
+      setSelectedCon(access.allowedSultantIds[0]);
+    } else {
+      const s = localStorage.getItem(LS_CON);
+      if (s) setSelectedCon(s);
+    }
+  }, [access.loading, access.role, access.allowedSultantIds]);
   useEffect(() => { if (selectedCon) localStorage.setItem(LS_CON, selectedCon); }, [selectedCon]);
   useEffect(() => { localStorage.setItem(LS_YEAR, String(year)); }, [year]);
 
   useEffect(() => {
-    supabase.from("Sultant").select("*").then(({ data }) => setConsultants(data||[]));
+    supabase.from("Sultant").select("*").then(({ data }) => {
+      const all = data || [];
+      // Filtrer selon les droits
+      if (access.allowedSultantIds === null) {
+        setConsultants(all); // admin
+      } else {
+        setConsultants(all.filter(s => access.allowedSultantIds!.includes(s.id)));
+      }
+    });
     supabase.from("Mission").select("*").then(({ data }) => setMissions(data||[]));
     supabase.from("Absence").select("*").then(({ data }) => setAbsences(data||[]));
   }, []);
@@ -729,7 +748,7 @@ export default function AnnualPlanner() {
           <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
           {year!==today && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }}>Aujourd&apos;hui</button>}
         </>}
-        <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset" }}>
+        <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} disabled={access.role==="consultant"} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset", opacity: access.role==="consultant" ? 0.7 : 1 }}>
           <option value="">-- Consultant --</option>
           {consultants.map(c => <option key={c.id} value={c.id}>{c.Nom} {c.Prénom}</option>)}
         </select>
@@ -746,8 +765,8 @@ export default function AnnualPlanner() {
 
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
-          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={handleDayClick} />
+          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={access.canEdit ? handleDayClick : ()=>{}} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} onFirstClick={access.canEdit ? handleDayClick : ()=>{}} />
         }
       </div>
 

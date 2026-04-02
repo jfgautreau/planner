@@ -7,8 +7,9 @@ import SyncAdmin      from "@/components/SyncAdmin";
 import ConsultantForm from "@/components/ConsultantForm";
 import MissionForm    from "@/components/MissionForm";
 import ObjectifForm   from "@/components/ObjectifForm";
+import UserAccessForm from "@/components/UserAccessForm";
 
-type Tab = "sync"|"consultants"|"missions"|"objectifs";
+type Tab = "sync"|"consultants"|"missions"|"objectifs"|"acces";
 
 export default function Settings() {
   const pathname = usePathname();
@@ -28,6 +29,7 @@ export default function Settings() {
             ["consultants", "👤 Consultants"],
             ["missions",    "📋 Missions"],
             ["objectifs",   "🎯 Objectifs"],
+            ["acces",       "🔐 Accès"],
           ] as [Tab,string][]).map(([t,label])=>(
             <button key={t} onClick={()=>setTab(t)} style={{
               padding:"0.55rem 1.2rem", border:"none",
@@ -44,6 +46,7 @@ export default function Settings() {
         {tab==="consultants" && <ConsultantForm />}
         {tab==="missions"    && <MissionForm />}
         {tab==="objectifs"   && <ObjectifForm />}
+        {tab==="acces"       && <UserAccessForm />}
       </div>
     </div>
   );
