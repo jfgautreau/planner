@@ -70,7 +70,10 @@ export function FixedNav({ activePath }: { activePath: string }) {
   return (
     <>
       <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
-        <span style={{ color:"white", fontWeight:"bold", fontSize:"1rem", marginRight:"0.8rem" }}>📅 Planner</span>
+        <span style={{ display:"flex", alignItems:"center", gap:"0.4rem", marginRight:"0.8rem" }}>
+        <img src="/favicon.ico" alt="logo" style={{ width:22, height:22, borderRadius:3 }} />
+        <span style={{ color:"white", fontWeight:"bold", fontSize:"1rem" }}>Sultime</span>
+      </span>
         {/* Desktop : liens visibles */}
         <div style={{ display:"flex", gap:"0.3rem", flex:1 }} className="nav-desktop">
           {navLinks.map(l => (
