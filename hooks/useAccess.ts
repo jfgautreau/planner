@@ -3,12 +3,20 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export type UserRole = "admin" | "manager" | "consultant" | null;
+export type UserRole = "admin" | "chef_mission" | "consultant" | null;
+
+export type SultantAccess = {
+  sultantId: string;
+  canRead: boolean;
+  canWrite: boolean;
+};
 
 export type AccessInfo = {
   role: UserRole;
-  canEdit: boolean;
+  isAdmin: boolean;
+  sultants: SultantAccess[];
   allowedSultantIds: string[] | null; // null = tous (admin)
+  writableSultantIds: string[] | null; // null = tous (admin)
   loading: boolean;
   userId: string | null;
 };
@@ -16,8 +24,10 @@ export type AccessInfo = {
 export function useAccess(): AccessInfo {
   const [info, setInfo] = useState<AccessInfo>({
     role: null,
-    canEdit: false,
+    isAdmin: false,
+    sultants: [],
     allowedSultantIds: null,
+    writableSultantIds: null,
     loading: true,
     userId: null,
   });
@@ -26,38 +36,35 @@ export function useAccess(): AccessInfo {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setInfo({ role: null, canEdit: false, allowedSultantIds: [], loading: false, userId: null });
+        setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: null });
         return;
       }
 
       const { data } = await supabase
         .from("UserAccess")
-        .select("role, can_edit, sultant_id")
+        .select("role, can_read, can_write, sultant_id")
         .eq("user_id", user.id);
 
       if (!data || data.length === 0) {
-        // Aucun droit configuré → accès refusé
-        setInfo({ role: null, canEdit: false, allowedSultantIds: [], loading: false, userId: user.id });
+        setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: user.id });
         return;
       }
 
-      // Si au moins une entrée est admin → accès total
-      const adminEntry = data.find(d => d.role === "admin");
-      if (adminEntry) {
-        setInfo({ role: "admin", canEdit: true, allowedSultantIds: null, loading: false, userId: user.id });
-        return;
-      }
-
-      // Manager ou consultant : liste des sultant_id autorisés
       const role = data[0].role as UserRole;
-      const canEdit = data.some(d => d.can_edit);
-      const allowedSultantIds = data
-        .map(d => d.sultant_id)
-        .filter((id): id is string => !!id);
+      const isAdmin = role === "admin";
 
-      setInfo({ role, canEdit, allowedSultantIds, loading: false, userId: user.id });
+      const sultants: SultantAccess[] = data.map(d => ({
+        sultantId: d.sultant_id,
+        canRead: d.can_read,
+        canWrite: d.can_write,
+      }));
+
+      // Admin : null = accès total, sinon liste filtrée
+      const allowedSultantIds = isAdmin ? null : sultants.filter(s => s.canRead).map(s => s.sultantId);
+      const writableSultantIds = isAdmin ? null : sultants.filter(s => s.canWrite).map(s => s.sultantId);
+
+      setInfo({ role, isAdmin, sultants, allowedSultantIds, writableSultantIds, loading: false, userId: user.id });
     };
-
     load();
   }, []);
 

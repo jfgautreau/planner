@@ -12,6 +12,7 @@ export default function ConsultantForm() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const load = async () => {
     const { data } = await supabase.from("Sultant").select("*").order("Nom");
@@ -31,6 +32,12 @@ export default function ConsultantForm() {
       if (error) { setMsg(`❌ ${error.message}`); } else { setMsg("✅ Consultant ajouté."); setNom(""); setPrenom(""); load(); }
     }
     setSaving(false);
+  };
+
+  const copyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const startEdit = (c: Sultant) => { setEditId(c.id); setNom(c.Nom); setPrenom(c.Prénom); setMsg(""); };
@@ -56,7 +63,10 @@ export default function ConsultantForm() {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
         <thead>
           <tr style={{ background: "#2c3e50", color: "white" }}>
-            <th style={th}>Nom</th><th style={th}>Prénom</th><th style={th}>Actions</th>
+            <th style={th}>Nom</th>
+            <th style={th}>Prénom</th>
+            <th style={{ ...th, color: "#b0bec5", fontWeight: "normal", fontSize: "0.75rem" }}>UUID consultant</th>
+            <th style={th}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -64,6 +74,20 @@ export default function ConsultantForm() {
             <tr key={c.id} style={{ background: i % 2 === 0 ? "#f9f9f9" : "white" }}>
               <td style={td}>{c.Nom}</td>
               <td style={td}>{c.Prénom}</td>
+              <td style={td}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <code style={{ fontSize: "0.72rem", color: "#888", background: "#f0f0f0", padding: "0.1rem 0.4rem", borderRadius: 3 }}>
+                    {c.id.slice(0, 8)}…
+                  </code>
+                  <button
+                    onClick={() => copyId(c.id)}
+                    title={c.id}
+                    style={{ padding: "0.15rem 0.4rem", background: copiedId === c.id ? "#27ae60" : "#ecf0f1", color: copiedId === c.id ? "white" : "#555", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", fontSize: "0.72rem", transition: "all 0.2s" }}
+                  >
+                    {copiedId === c.id ? "✓ Copié" : "📋 Copier"}
+                  </button>
+                </div>
+              </td>
               <td style={td}>
                 <button onClick={() => startEdit(c)} style={{ ...btnSmall, background: "#3498db" }}>✏️</button>
                 <button onClick={() => remove(c.id)} style={{ ...btnSmall, background: "#e74c3c", marginLeft: 4 }}>🗑</button>
