@@ -47,7 +47,7 @@ function getAffStyle(aff: Affectation) {
 }
 
 // ── Navbar fixe ──────────────────────────────────────────────────────────────
-export function FixedNav({ activePath }: { activePath: string }) {
+export function FixedNav({ activePath, role }: { activePath: string; role?: string }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const s = (path: string): React.CSSProperties => ({
@@ -60,13 +60,16 @@ export function FixedNav({ activePath }: { activePath: string }) {
     await supabase.auth.signOut();
     router.push("/login");
   }, [router]);
-  const navLinks = [
-    { path:"/",             label:"📆 Calendrier" },
-    { path:"/client",       label:"👥 Vue Client" },
-    { path:"/dashboardprod",label:"📊 TdB Prod" },
-    { path:"/dashboardrh",  label:"📊 TdB RH" },
-    { path:"/settings",     label:"⚙️ Paramètres" },
-  ];
+  const isConsultation = role === "consultation";
+  const navLinks = isConsultation
+    ? [{ path:"/", label:"📆 Calendrier" }]
+    : [
+        { path:"/",             label:"📆 Calendrier" },
+        { path:"/client",       label:"👥 Vue Client" },
+        { path:"/dashboardprod",label:"📊 TdB Prod" },
+        { path:"/dashboardrh",  label:"📊 TdB RH" },
+        { path:"/settings",     label:"⚙️ Paramètres" },
+      ];
   return (
     <>
       <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
@@ -779,7 +782,7 @@ export default function AnnualPlanner() {
 
   return (
     <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
-      <FixedNav activePath={pathname||"/"} />
+      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
