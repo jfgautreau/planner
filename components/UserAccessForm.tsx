@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Sultant = { id: string; Nom: string; Prénom: string };
@@ -12,29 +12,29 @@ type AccessRow = {
   can_read: boolean;
   can_write: boolean;
 };
-type UserEntry = {
-  user_id: string;
-  role: "admin" | "chef_mission" | "consultant";
-  accesses: AccessRow[];
-};
 
 const NAVY = "#1a2744";
 const ROLE_LABELS = {
-  admin:        { label: "👑 Admin",           color: "#e67e22" },
-  chef_mission: { label: "🧑‍💼 Chef de mission", color: "#3498db" },
-  consultant:   { label: "👤 Consultant",       color: "#7f8c8d" },
+  admin:        { label: "👑 Admin",            color: "#e67e22" },
+  chef_mission: { label: "🧑‍💼 Chef de mission",  color: "#3498db" },
+  consultant:   { label: "👤 Consultant",        color: "#7f8c8d" },
 };
 
-export default function UserAccessForm() {
-  const [sultants, setSultants]       = useState<Sultant[]>([]);
-  const [userEntries, setUserEntries] = useState<UserEntry[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
-  const [msg, setMsg]                 = useState("");
+// Identifiants uniques des utilisateurs avec leur rôle
+type UserMeta = { user_id: string; role: "admin"|"chef_mission"|"consultant" };
 
-  const [newUserId, setNewUserId]         = useState("");
-  const [newRole, setNewRole]             = useState<"admin"|"chef_mission"|"consultant">("consultant");
-  const [newSultantId, setNewSultantId]   = useState("");
+export default function UserAccessForm() {
+  const [sultants, setSultants]     = useState<Sultant[]>([]);
+  const [accesses, setAccesses]     = useState<AccessRow[]>([]);
+  const [users, setUsers]           = useState<UserMeta[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [msg, setMsg]               = useState("");
+
+  // Formulaire ajout
+  const [newUserId, setNewUserId]     = useState("");
+  const [newRole, setNewRole]         = useState<"admin"|"chef_mission"|"consultant">("consultant");
+  const [newSultantId, setNewSultantId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,161 +45,265 @@ export default function UserAccessForm() {
     const allSultants = (s as unknown as Sultant[]) || [];
     const allAccesses = (a || []) as AccessRow[];
     setSultants(allSultants);
-    const byUser = new Map<string, UserEntry>();
+    setAccesses(allAccesses);
+
+    // Extraire la liste unique des utilisateurs avec leur rôle
+    const userMap = new Map<string, UserMeta>();
     allAccesses.forEach(row => {
-      if (!byUser.has(row.user_id)) byUser.set(row.user_id, { user_id: row.user_id, role: row.role, accesses: [] });
-      byUser.get(row.user_id)!.accesses.push(row);
+      if (!userMap.has(row.user_id))
+        userMap.set(row.user_id, { user_id: row.user_id, role: row.role });
     });
-    setUserEntries(Array.from(byUser.values()));
+    setUsers(Array.from(userMap.values()));
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const addUser = async () => {
+  // Lookup O(1) : user_id+sultant_id → AccessRow
+  const accessMap = useMemo(() => {
+    const m = new Map<string, AccessRow>();
+    accesses.forEach(a => m.set(`${a.user_id}::${a.sultant_id}`, a));
+    return m;
+  }, [accesses]);
+
+  const getAccess = (userId: string, sultantId: string) =>
+    accessMap.get(`${userId}::${sultantId}`);
+
+  // Toggle une case lecture ou écriture
+  const toggle = useCallback(async (
+    userId: string, sultantId: string,
+    field: "can_read"|"can_write", value: boolean,
+    userRole: "admin"|"chef_mission"|"consultant"
+  ) => {
+    if (userRole === "admin" || userRole === "consultant") return;
+    const existing = accessMap.get(`${userId}::${sultantId}`);
+    const updates: Record<string, boolean> = { [field]: value };
+    if (field === "can_write" && value)  updates.can_read = true;
+    if (field === "can_read"  && !value) updates.can_write = false;
+
+    if (existing) {
+      await supabase.from("UserAccess").update(updates).eq("id", existing.id);
+    } else {
+      // Créer la ligne si elle n'existe pas encore
+      await supabase.from("UserAccess").insert({
+        user_id: userId, sultant_id: sultantId,
+        role: userRole, can_read: updates.can_read ?? true,
+        can_write: updates.can_write ?? false,
+      });
+    }
+    load();
+  }, [accessMap, load]);
+
+  // Ajouter un utilisateur
+  const addUser = useCallback(async () => {
     if (!newUserId.trim()) { setMsg("⚠️ Saisis un User ID."); return; }
     setSaving(true); setMsg("");
+
     if (newRole === "admin") {
-      const rows = sultants.map(s => ({ user_id: newUserId.trim(), sultant_id: s.id, role: "admin", can_read: true, can_write: true }));
+      const rows = sultants.map(s => ({
+        user_id: newUserId.trim(), sultant_id: s.id,
+        role: "admin", can_read: true, can_write: true,
+      }));
       const { error } = await supabase.from("UserAccess").insert(rows);
       if (error) { setMsg(`❌ ${error.message}`); setSaving(false); return; }
     } else {
-      if (!newSultantId) { setMsg("⚠️ Sélectionne le profil consultant."); setSaving(false); return; }
+      if (!newSultantId) { setMsg("⚠️ Sélectionne le profil."); setSaving(false); return; }
       const { error } = await supabase.from("UserAccess").insert({
         user_id: newUserId.trim(), sultant_id: newSultantId,
         role: newRole, can_read: true, can_write: true,
       });
       if (error) { setMsg(`❌ ${error.message}`); setSaving(false); return; }
     }
-    setMsg("✅ Utilisateur ajouté."); setNewUserId(""); setNewSultantId("");
+    setMsg("✅ Utilisateur ajouté.");
+    setNewUserId(""); setNewSultantId("");
     load(); setSaving(false);
-  };
+  }, [newUserId, newRole, newSultantId, sultants, load]);
 
-  const toggle = useCallback(async (row: AccessRow, field: "can_read"|"can_write", value: boolean) => {
-    if (row.role === "consultant" || row.role === "admin") return;
-    const updates: Record<string, boolean> = { [field]: value };
-    if (field === "can_write" && value) updates.can_read = true;
-    if (field === "can_read" && !value) updates.can_write = false;
-    await supabase.from("UserAccess").update(updates).eq("id", row.id);
-    load();
-  }, [load]);
-
-  const addSultantAccess = async (userId: string, sultantId: string) => {
-    await supabase.from("UserAccess").insert({ user_id: userId, sultant_id: sultantId, role: "chef_mission", can_read: true, can_write: false });
-    load();
-  };
-
-  const removeRow = useCallback(async (id: string) => { await supabase.from("UserAccess").delete().eq("id", id); load(); }, [load]);
-
+  // Supprimer tous les droits d'un utilisateur
   const removeUser = useCallback(async (userId: string) => {
     if (!confirm("Supprimer tous les droits de cet utilisateur ?")) return;
     await supabase.from("UserAccess").delete().eq("user_id", userId);
     load();
   }, [load]);
 
-  const sultantName = useCallback((id: string) => { const s = sultants.find(s => s.id === id); return s ? `${s.Nom} ${s.Prénom}` : id.slice(0, 8); }, [sultants]);
-  const inp: React.CSSProperties = { padding: "0.4rem 0.7rem", border: "1px solid #ccc", borderRadius: 4, fontSize: "0.85rem", width: "100%" };
+  const inp: React.CSSProperties = {
+    padding: "0.45rem 0.7rem", border: "1px solid #ccc",
+    borderRadius: 4, fontSize: "0.85rem", width: "100%",
+    boxSizing: "border-box",
+  };
+  const label: React.CSSProperties = {
+    fontSize: "0.72rem", color: "#666", marginBottom: "0.25rem", display: "block",
+  };
 
   if (loading) return <div style={{ padding: "1rem", color: "#888" }}>Chargement...</div>;
 
   return (
     <div>
       <h2 style={{ marginTop: 0, fontSize: "1.1rem" }}>🔐 Gestion des accès</h2>
-      <p style={{ fontSize: "0.8rem", color: "#666", marginBottom: "1.2rem" }}>
-        <strong>Admin</strong> : tout voir/modifier · <strong>Chef de mission</strong> : droits configurables par consultant · <strong>Consultant</strong> : son profil uniquement (lecture+écriture)
+      <p style={{ fontSize: "0.8rem", color: "#666", marginBottom: "1.4rem" }}>
+        <strong>Admin</strong> : tout coché automatiquement ·{" "}
+        <strong>Chef de mission</strong> : lecture/écriture configurables par consultant ·{" "}
+        <strong>Consultant</strong> : son profil uniquement, verrouillé
       </p>
 
-      {/* Formulaire ajout */}
-      <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "1rem", marginBottom: "1.8rem", background: "#fafafa" }}>
-        <div style={{ fontWeight: "bold", fontSize: "0.9rem", marginBottom: "0.8rem", color: NAVY }}>➕ Ajouter un utilisateur</div>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: "0.6rem", alignItems: "end" }}>
+      {/* ── Formulaire ajout ── */}
+      <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "1rem 1.2rem", marginBottom: "2rem", background: "#fafafa" }}>
+        <div style={{ fontWeight: "bold", fontSize: "0.88rem", marginBottom: "1rem", color: NAVY }}>
+          ➕ Ajouter un utilisateur
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", marginBottom: "0.8rem" }}>
           <div>
-            <div style={{ fontSize: "0.72rem", color: "#666", marginBottom: "0.2rem" }}>User ID Supabase</div>
-            <input value={newUserId} onChange={e => setNewUserId(e.target.value)} placeholder="uuid…" style={inp} />
-            <div style={{ fontSize: "0.68rem", color: "#aaa", marginTop: "0.15rem" }}>Supabase → Authentication → Users</div>
+            <span style={label}>User ID Supabase</span>
+            <input
+              value={newUserId}
+              onChange={e => setNewUserId(e.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              style={inp}
+            />
+            <span style={{ fontSize: "0.68rem", color: "#aaa" }}>
+              Supabase → Authentication → Users
+            </span>
           </div>
           <div>
-            <div style={{ fontSize: "0.72rem", color: "#666", marginBottom: "0.2rem" }}>Rôle</div>
+            <span style={label}>Rôle</span>
             <select value={newRole} onChange={e => setNewRole(e.target.value as typeof newRole)} style={inp}>
-              <option value="admin">👑 Admin</option>
+              <option value="admin">👑 Admin (accès total)</option>
               <option value="chef_mission">🧑‍💼 Chef de mission</option>
               <option value="consultant">👤 Consultant</option>
             </select>
           </div>
-          {newRole !== "admin" && (
-            <div>
-              <div style={{ fontSize: "0.72rem", color: "#666", marginBottom: "0.2rem" }}>{newRole === "consultant" ? "Son profil" : "Son propre profil"}</div>
-              <select value={newSultantId} onChange={e => setNewSultantId(e.target.value)} style={inp}>
-                <option value="">-- Choisir --</option>
-                {sultants.map(s => <option key={s.id} value={s.id}>{s.Nom} {s.Prénom}</option>)}
-              </select>
-            </div>
-          )}
-          <button onClick={addUser} disabled={saving} style={{ padding: "0.45rem 1rem", background: "#27ae60", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap" }}>
-            {saving ? "…" : "Ajouter"}
-          </button>
         </div>
-        {msg && <div style={{ marginTop: "0.6rem", fontSize: "0.82rem", color: msg.startsWith("✅") ? "#27ae60" : "#e74c3c" }}>{msg}</div>}
+
+        {newRole !== "admin" && (
+          <div style={{ marginBottom: "0.8rem", maxWidth: "50%" }}>
+            <span style={label}>
+              {newRole === "consultant" ? "Son profil consultant" : "Son propre profil (chef de mission)"}
+            </span>
+            <select value={newSultantId} onChange={e => setNewSultantId(e.target.value)} style={inp}>
+              <option value="">-- Choisir --</option>
+              {sultants.map(s => (
+                <option key={s.id} value={s.id}>{s.Nom} {s.Prénom}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <button
+          onClick={addUser}
+          disabled={saving}
+          style={{ padding: "0.5rem 1.2rem", background: "#27ae60", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: "bold", fontSize: "0.88rem" }}
+        >
+          {saving ? "…" : "➕ Ajouter"}
+        </button>
+
+        {msg && (
+          <div style={{ marginTop: "0.6rem", fontSize: "0.82rem", color: msg.startsWith("✅") ? "#27ae60" : "#e74c3c" }}>
+            {msg}
+          </div>
+        )}
       </div>
 
-      {/* Tableau par utilisateur */}
-      {userEntries.length === 0 && <div style={{ textAlign: "center", color: "#aaa", padding: "2rem" }}>Aucun accès configuré.</div>}
-      {userEntries.map(entry => {
-        const rl = ROLE_LABELS[entry.role];
-        const locked = entry.role === "admin" || entry.role === "consultant";
-        const unassigned = sultants.filter(s => !entry.accesses.find(a => a.sultant_id === s.id));
-        return (
-          <div key={entry.user_id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, marginBottom: "1.2rem", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.6rem 1rem", background: "#f8f9fa", borderBottom: "1px solid #e0e0e0" }}>
-              <span style={{ background: rl.color, color: "white", padding: "0.18rem 0.6rem", borderRadius: 10, fontSize: "0.75rem", fontWeight: "bold" }}>{rl.label}</span>
-              <code style={{ fontSize: "0.78rem", color: "#555" }}>{entry.user_id.slice(0, 20)}…</code>
-              <button onClick={() => removeUser(entry.user_id)} style={{ marginLeft: "auto", padding: "0.2rem 0.5rem", background: "#e74c3c", color: "white", border: "none", borderRadius: 3, cursor: "pointer", fontSize: "0.75rem" }}>🗑 Supprimer</button>
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-              <thead>
-                <tr style={{ background: "#f0f4f8" }}>
-                  <th style={{ padding: "0.4rem 0.8rem", textAlign: "left", color: "#555", fontWeight: 600 }}>Consultant</th>
-                  <th style={{ padding: "0.4rem", textAlign: "center", width: 80, color: "#555", fontWeight: 600 }}>👁 Lecture</th>
-                  <th style={{ padding: "0.4rem", textAlign: "center", width: 80, color: "#555", fontWeight: 600 }}>✏️ Écriture</th>
-                  {!locked && <th style={{ width: 40 }} />}
-                </tr>
-              </thead>
-              <tbody>
-                {entry.accesses.map((row, i) => (
-                  <tr key={row.id} style={{ background: i % 2 === 0 ? "white" : "#fafafa", borderTop: "1px solid #eee" }}>
-                    <td style={{ padding: "0.4rem 0.8rem", fontWeight: 500 }}>{sultantName(row.sultant_id)}</td>
-                    <td style={{ padding: "0.4rem", textAlign: "center" }}>
-                      <input type="checkbox" checked={row.can_read} disabled={locked}
-                        onChange={e => toggle(row, "can_read", e.target.checked)}
-                        style={{ width: 16, height: 16, cursor: locked ? "default" : "pointer" }} />
-                    </td>
-                    <td style={{ padding: "0.4rem", textAlign: "center" }}>
-                      <input type="checkbox" checked={row.can_write} disabled={locked}
-                        onChange={e => toggle(row, "can_write", e.target.checked)}
-                        style={{ width: 16, height: 16, cursor: locked ? "default" : "pointer" }} />
-                    </td>
-                    {!locked && (
-                      <td style={{ padding: "0.4rem", textAlign: "center" }}>
-                        <button onClick={() => removeRow(row.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e74c3c", fontSize: "0.9rem" }}>✕</button>
-                      </td>
-                    )}
-                  </tr>
+      {/* ── Tableau double entrée ── */}
+      {users.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#aaa", padding: "2rem" }}>Aucun accès configuré.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: "0.8rem", width: "100%", minWidth: 500 }}>
+            <thead>
+              {/* Ligne 1 : entête utilisateurs */}
+              <tr>
+                <th rowSpan={2} style={{ ...thBase, textAlign: "left", minWidth: 130, background: NAVY, color: "white", borderRight: "2px solid #fff" }}>
+                  Consultant ↓ / Utilisateur →
+                </th>
+                {users.map(u => {
+                  const rl = ROLE_LABELS[u.role];
+                  return (
+                    <th key={u.user_id} colSpan={2} style={{ ...thBase, background: rl.color, color: "white", borderRight: "2px solid white", minWidth: 100 }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <span style={{ fontSize: "0.7rem" }}>{rl.label}</span>
+                        <span style={{ fontSize: "0.65rem", opacity: 0.85, fontWeight: "normal" }}>
+                          {u.user_id.slice(0, 8)}…
+                        </span>
+                        <button
+                          onClick={() => removeUser(u.user_id)}
+                          style={{ marginTop: 2, padding: "0.1rem 0.3rem", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 3, color: "white", cursor: "pointer", fontSize: "0.6rem" }}
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </th>
+                  );
+                })}
+              </tr>
+              {/* Ligne 2 : Lecture / Écriture par utilisateur */}
+              <tr>
+                {users.map(u => (
+                  <React.Fragment key={u.user_id}>
+                    <th style={{ ...thBase, background: "#f0f4f8", color: "#555", fontSize: "0.68rem", width: 50 }}>👁</th>
+                    <th style={{ ...thBase, background: "#f0f4f8", color: "#555", fontSize: "0.68rem", width: 50, borderRight: "2px solid #e0e0e0" }}>✏️</th>
+                  </React.Fragment>
                 ))}
-              </tbody>
-            </table>
-            {entry.role === "chef_mission" && unassigned.length > 0 && (
-              <div style={{ padding: "0.5rem 1rem", borderTop: "1px solid #eee", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.78rem", color: "#888" }}>+ Ajouter consultant :</span>
-                <select defaultValue="" onChange={e => { if (e.target.value) { addSultantAccess(entry.user_id, e.target.value); e.target.value = ""; } }}
-                  style={{ padding: "0.25rem 0.5rem", border: "1px solid #ccc", borderRadius: 4, fontSize: "0.8rem" }}>
-                  <option value="">-- Choisir --</option>
-                  {unassigned.map(s => <option key={s.id} value={s.id}>{s.Nom} {s.Prénom}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-        );
-      })}
+              </tr>
+            </thead>
+            <tbody>
+              {sultants.map((s, si) => (
+                <tr key={s.id} style={{ background: si % 2 === 0 ? "white" : "#fafafa" }}>
+                  {/* Nom consultant */}
+                  <td style={{ padding: "0.4rem 0.8rem", fontWeight: 500, borderRight: "2px solid #e0e0e0", borderBottom: "1px solid #eee", whiteSpace: "nowrap" }}>
+                    {s.Nom} {s.Prénom}
+                  </td>
+                  {/* Cases par utilisateur */}
+                  {users.map(u => {
+                    const row = getAccess(u.user_id, s.id);
+                    const locked = u.role === "admin" || u.role === "consultant";
+                    const canRead  = row?.can_read  ?? false;
+                    const canWrite = row?.can_write ?? false;
+
+                    return (
+                      <React.Fragment key={u.user_id}>
+                        <td style={{ ...tdCenter, borderBottom: "1px solid #eee" }}>
+                          <input
+                            type="checkbox"
+                            checked={canRead}
+                            disabled={locked}
+                            onChange={e => toggle(u.user_id, s.id, "can_read", e.target.checked, u.role)}
+                            style={{ width: 15, height: 15, cursor: locked ? "default" : "pointer", accentColor: "#3498db" }}
+                          />
+                        </td>
+                        <td style={{ ...tdCenter, borderRight: "2px solid #e0e0e0", borderBottom: "1px solid #eee" }}>
+                          <input
+                            type="checkbox"
+                            checked={canWrite}
+                            disabled={locked}
+                            onChange={e => toggle(u.user_id, s.id, "can_write", e.target.checked, u.role)}
+                            style={{ width: 15, height: 15, cursor: locked ? "default" : "pointer", accentColor: "#27ae60" }}
+                          />
+                        </td>
+                      </React.Fragment>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Légende */}
+      <div style={{ marginTop: "1rem", display: "flex", gap: "1.2rem", fontSize: "0.75rem", color: "#888" }}>
+        <span>👁 Lecture = voir le planning</span>
+        <span>✏️ Écriture = modifier les affectations</span>
+        <span style={{ color: "#aaa" }}>Cases grisées = verrouillées (admin/consultant)</span>
+      </div>
     </div>
   );
 }
+
+const thBase: React.CSSProperties = {
+  padding: "0.5rem 0.4rem", textAlign: "center",
+  border: "1px solid #e0e0e0", fontWeight: 600,
+};
+const tdCenter: React.CSSProperties = {
+  padding: "0.3rem", textAlign: "center",
+};
