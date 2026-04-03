@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export type UserRole = "admin" | "chef_mission" | "consultant" | null;
+export type UserRole = "admin" | "chef_mission" | "consultant" | "consultation" | null;
 
 export type SultantAccess = {
   sultantId: string;
@@ -40,26 +40,27 @@ export function useAccess(): AccessInfo {
         return;
       }
 
-      const { data } = await supabase
-        .from("UserAccess")
-        .select("role, can_read, can_write, sultant_id")
-        .eq("user_id", user.id);
+      // Récupérer le rôle depuis AppUser et les accès depuis UserAccess
+      const [{ data: appUser }, { data: accessData }] = await Promise.all([
+        supabase.from("AppUser").select("role").eq("user_id", user.id).single(),
+        supabase.from("UserAccess").select("role, can_read, can_write, sultant_id").eq("user_id", user.id),
+      ]);
 
-      if (!data || data.length === 0) {
+      if (!appUser) {
         setInfo({ role: null, isAdmin: false, sultants: [], allowedSultantIds: [], writableSultantIds: [], loading: false, userId: user.id });
         return;
       }
 
-      const role = data[0].role as UserRole;
+      const role = appUser.role as UserRole;
       const isAdmin = role === "admin";
+      const data = accessData || [];
 
-      const sultants: SultantAccess[] = data.map(d => ({
+      const sultants: SultantAccess[] = data.map((d: { sultant_id: string; can_read: boolean; can_write: boolean }) => ({
         sultantId: d.sultant_id,
         canRead: d.can_read,
-        canWrite: d.can_write,
+        canWrite: role === "consultation" ? false : d.can_write, // consultation = jamais d'écriture
       }));
 
-      // Admin : null = accès total, sinon liste filtrée
       const allowedSultantIds = isAdmin ? null : sultants.filter(s => s.canRead).map(s => s.sultantId);
       const writableSultantIds = isAdmin ? null : sultants.filter(s => s.canWrite).map(s => s.sultantId);
 
