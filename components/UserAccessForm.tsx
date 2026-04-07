@@ -180,7 +180,7 @@ export default function UserAccessForm() {
 
   if (loading) return <div style={{ padding: "1rem", color: "#888" }}>Chargement...</div>;
 
-  const tabBtn = (t: "users"|"missions") => ({
+  const tabBtn = (t: "users"|"missions"|"menus") => ({
     padding: "0.5rem 1.2rem", border: "none", cursor: "pointer", fontSize: "0.88rem",
     borderBottom: activeTab === t ? `3px solid ${NAVY}` : "3px solid transparent",
     marginBottom: -2, background: "none",
