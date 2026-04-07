@@ -351,7 +351,7 @@ export default function PlanningView() {
         </button>
 
         {/* Palette drag & drop */}
-        {access.canEdit !== false && (
+        {(access.isAdmin || access.writableSultantIds === null || (access.writableSultantIds?.length ?? 0) > 0) && (
           <div style={{ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginLeft:"auto", alignItems:"center" }}>
             <span style={{ fontSize:"0.7rem", color:"#888" }}>Glisser :</span>
             {missions.map(m => (
