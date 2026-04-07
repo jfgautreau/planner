@@ -65,6 +65,7 @@ export function FixedNav({ activePath, role }: { activePath: string; role?: stri
     ? [{ path:"/", label:"📆 Calendrier" }]
     : [
         { path:"/",             label:"📆 Calendrier" },
+        { path:"/planning",     label:"📅 Planning" },
         { path:"/client",       label:"👥 Vue Client" },
         { path:"/dashboardprod",label:"📊 TdB Prod" },
         { path:"/dashboardrh",  label:"📊 TdB RH" },
