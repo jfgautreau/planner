@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useAccess } from "@/hooks/useAccess";
+import { useAccess, type MenuKey } from "@/hooks/useAccess";
 
 type Sultant     = { id: string; Nom: string; Prénom: string };
 type Mission     = { id: string; Client: string; Mission: string; Code: string; Color: string; TextColor: string };
@@ -49,6 +49,7 @@ function getAffStyle(aff: Affectation) {
 // ── Navbar fixe ──────────────────────────────────────────────────────────────
 export function FixedNav({ activePath, role }: { activePath: string; role?: string }) {
   const router = useRouter();
+  const access = useAccess();
   const [menuOpen, setMenuOpen] = useState(false);
   const s = (path: string): React.CSSProperties => ({
     padding:"0.45rem 1rem", border:"none", borderRadius:4, cursor:"pointer",
@@ -60,17 +61,20 @@ export function FixedNav({ activePath, role }: { activePath: string; role?: stri
     await supabase.auth.signOut();
     router.push("/login");
   }, [router]);
-  const isConsultation = role === "consultation";
-  const navLinks = isConsultation
-    ? [{ path:"/", label:"📆 Calendrier" }]
-    : [
-        { path:"/",             label:"📆 Calendrier" },
-        { path:"/planning",     label:"📅 Planning" },
-        { path:"/client",       label:"👥 Vue Client" },
-        { path:"/dashboardprod",label:"📊 TdB Prod" },
-        { path:"/dashboardrh",  label:"📊 TdB RH" },
-        { path:"/settings",     label:"⚙️ Paramètres" },
-      ];
+
+  const ALL_LINKS: { path: string; label: string; menu: MenuKey }[] = [
+    { path:"/",             label:"📆 Calendrier", menu:"calendrier"    },
+    { path:"/planning",     label:"📅 Planning",   menu:"planning"      },
+    { path:"/client",       label:"👥 Vue Client", menu:"client"        },
+    { path:"/dashboardprod",label:"📊 TdB Prod",   menu:"dashboardprod" },
+    { path:"/dashboardrh",  label:"📊 TdB RH",     menu:"dashboardrh"   },
+    { path:"/settings",     label:"⚙️ Paramètres", menu:"settings"      },
+  ];
+
+  // Filtrer selon visibleMenus (pendant le chargement, on affiche tout pour éviter le flash)
+  const navLinks = access.loading
+    ? ALL_LINKS
+    : ALL_LINKS.filter(l => access.visibleMenus.has(l.menu));
   return (
     <>
       <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
@@ -784,7 +788,7 @@ export default function AnnualPlanner() {
 
   return (
     <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
-      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} />
+      <FixedNav activePath={pathname||"/"} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>

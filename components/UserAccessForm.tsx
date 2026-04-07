@@ -16,6 +16,17 @@ type MissionAccessRow = {
 type RoleType = "admin" | "chef_mission" | "consultant" | "consultation";
 
 const NAVY = "#1a2744";
+
+const MENUS: { key: string; label: string; path: string }[] = [
+  { key:"calendrier",    label:"📆 Calendrier",  path:"/" },
+  { key:"planning",      label:"📅 Planning",    path:"/planning" },
+  { key:"client",        label:"👥 Vue Client",  path:"/client" },
+  { key:"dashboardprod", label:"📊 TdB Prod",    path:"/dashboardprod" },
+  { key:"dashboardrh",   label:"📊 TdB RH",      path:"/dashboardrh" },
+  { key:"settings",      label:"⚙️ Paramètres",  path:"/settings" },
+];
+
+type MenuAccessRow = { id: string; target_type: "role"|"user"; target_id: string; menu: string; can_see: boolean };
 const ROLES: { value: RoleType; label: string; color: string }[] = [
   { value: "admin",        label: "👑 Admin",           color: "#e67e22" },
   { value: "chef_mission", label: "🧑‍💼 Chef de mission",  color: "#3498db" },
@@ -30,24 +41,27 @@ export default function UserAccessForm() {
   const [appUsers, setAppUsers]           = useState<AppUser[]>([]);
   const [accesses, setAccesses]           = useState<AccessRow[]>([]);
   const [missionAccesses, setMissionAccesses] = useState<MissionAccessRow[]>([]);
+  const [menuAccesses, setMenuAccesses]   = useState<MenuAccessRow[]>([]);
   const [loading, setLoading]             = useState(true);
-  const [activeTab, setActiveTab]         = useState<"users"|"missions">("users");
+  const [activeTab, setActiveTab]         = useState<"users"|"missions"|"menus">("users");
   const [msg, setMsg]                     = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: s }, { data: m }, { data: u }, { data: a }, { data: ma }] = await Promise.all([
+    const [{ data: s }, { data: m }, { data: u }, { data: a }, { data: ma }, { data: mna }] = await Promise.all([
       supabase.from("Sultant").select("id,Nom,Prénom").order("Nom"),
       supabase.from("Mission").select("id,Code,Client,Color,TextColor").order("Client"),
       supabase.from("AppUser").select("user_id,email,role").order("email"),
       supabase.from("UserAccess").select("id,user_id,sultant_id,role,can_read,can_write"),
       supabase.from("MissionAccess").select("id,sultant_id,mission_id,can_see"),
+      supabase.from("MenuAccess").select("id,target_type,target_id,menu,can_see"),
     ]);
     setSultants((s as unknown as Sultant[]) || []);
     setMissions((m || []) as Mission[]);
     setAppUsers((u || []) as AppUser[]);
     setAccesses((a || []) as AccessRow[]);
     setMissionAccesses((ma || []) as MissionAccessRow[]);
+    setMenuAccesses((mna || []) as MenuAccessRow[]);
     setLoading(false);
   }, []);
 
@@ -59,6 +73,28 @@ export default function UserAccessForm() {
     accesses.forEach(a => map.set(`${a.user_id}::${a.sultant_id}`, a));
     return map;
   }, [accesses]);
+
+  // ── Lookup O(1) accès menus ──
+  const menuAccessMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    menuAccesses.forEach(a => map.set(`${a.target_type}::${a.target_id}::${a.menu}`, a.can_see));
+    return map;
+  }, [menuAccesses]);
+
+  const getMenuAccess = (targetType: "role"|"user", targetId: string, menu: string): boolean | null => {
+    const key = `${targetType}::${targetId}::${menu}`;
+    return menuAccessMap.has(key) ? menuAccessMap.get(key)! : null;
+  };
+
+  const toggleMenu = useCallback(async (targetType: "role"|"user", targetId: string, menu: string, value: boolean) => {
+    const existing = menuAccesses.find(a => a.target_type===targetType && a.target_id===targetId && a.menu===menu);
+    if (existing) {
+      await supabase.from("MenuAccess").update({ can_see: value }).eq("id", existing.id);
+    } else {
+      await supabase.from("MenuAccess").insert({ target_type: targetType, target_id: targetId, menu, can_see: value });
+    }
+    load();
+  }, [menuAccesses, load]);
 
   // ── Lookup O(1) accès missions ──
   const missionAccessMap = useMemo(() => {
@@ -172,6 +208,7 @@ export default function UserAccessForm() {
       <div style={{ display: "flex", borderBottom: "2px solid #e0e0e0", marginBottom: "1.4rem" }}>
         <button style={tabBtn("users")} onClick={() => setActiveTab("users")}>👥 Utilisateurs → Consultants</button>
         <button style={tabBtn("missions")} onClick={() => setActiveTab("missions")}>📋 Consultants → Missions</button>
+        <button style={tabBtn("menus")} onClick={() => setActiveTab("menus")}>🔲 Droits sur les menus</button>
       </div>
 
       {msg && <div style={{ marginBottom: "0.8rem", fontSize: "0.82rem", color: msg.startsWith("✅") ? "#27ae60" : "#e74c3c" }}>{msg}</div>}
@@ -315,6 +352,103 @@ export default function UserAccessForm() {
           </table>
         </div>
       )}
+
+      {/* ══ TABLEAU 3 : Droits menus ══ */}
+      {activeTab === "menus" && (
+        <div>
+          <p style={{ fontSize:"0.8rem", color:"#666", marginBottom:"1.2rem" }}>
+            Les réglages <strong>par rôle</strong> s'appliquent à tous les utilisateurs de ce rôle. Les réglages <strong>par utilisateur</strong> ont la priorité sur le rôle.
+            Les admins voient toujours tous les menus.
+          </p>
+
+          {/* Par rôle */}
+          <div style={{ marginBottom:"1.8rem" }}>
+            <div style={{ fontWeight:"bold", fontSize:"0.88rem", color:NAVY, marginBottom:"0.8rem" }}>Par rôle</div>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ borderCollapse:"collapse", fontSize:"0.8rem", width:"100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thS, textAlign:"left", minWidth:160, background:NAVY, color:"white" }}>Rôle</th>
+                    {MENUS.map(m => (
+                      <th key={m.key} style={{ ...thS, background:"#34495e", color:"white", minWidth:90, fontSize:"0.72rem" }}>
+                        {m.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ROLES.filter(r => r.value !== "admin").map((role, ri) => (
+                    <tr key={role.value} style={{ background: ri%2===0?"white":"#fafafa" }}>
+                      <td style={{ ...tdS, fontWeight:600 }}>
+                        <span style={{ background:role.color, color:"white", padding:"0.15rem 0.5rem", borderRadius:10, fontSize:"0.72rem" }}>{role.label}</span>
+                      </td>
+                      {MENUS.map(m => {
+                        const val = getMenuAccess("role", role.value, m.key);
+                        const checked = val !== false; // null ou true = visible
+                        return (
+                          <td key={m.key} style={{ ...tdCenter }}>
+                            <input type="checkbox" checked={checked}
+                              onChange={e => toggleMenu("role", role.value, m.key, e.target.checked)}
+                              style={{ width:15, height:15, cursor:"pointer", accentColor:role.color }} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Par utilisateur */}
+          <div>
+            <div style={{ fontWeight:"bold", fontSize:"0.88rem", color:NAVY, marginBottom:"0.4rem" }}>Par utilisateur <span style={{ fontSize:"0.75rem", color:"#888", fontWeight:"normal" }}>(override le rôle)</span></div>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ borderCollapse:"collapse", fontSize:"0.8rem", width:"100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thS, textAlign:"left", minWidth:200, background:NAVY, color:"white" }}>Utilisateur</th>
+                    {MENUS.map(m => (
+                      <th key={m.key} style={{ ...thS, background:"#34495e", color:"white", minWidth:90, fontSize:"0.72rem" }}>
+                        {m.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {appUsers.filter(u => u.role !== "admin").map((u, ui) => (
+                    <tr key={u.user_id} style={{ background: ui%2===0?"white":"#fafafa" }}>
+                      <td style={{ ...tdS }}>
+                        <div style={{ fontSize:"0.78rem", fontWeight:500 }}>{u.email || `${u.user_id.slice(0,12)}…`}</div>
+                        <div style={{ fontSize:"0.68rem", color:roleColor(u.role) }}>{ROLES.find(r=>r.value===u.role)?.label}</div>
+                      </td>
+                      {MENUS.map(m => {
+                        const userVal  = getMenuAccess("user", u.user_id, m.key);
+                        const roleVal  = getMenuAccess("role", u.role, m.key);
+                        // Valeur effective : user override > rôle > true par défaut
+                        const effective = userVal !== null ? userVal : (roleVal !== false);
+                        const hasOverride = userVal !== null;
+                        return (
+                          <td key={m.key} style={{ ...tdCenter, background: hasOverride ? "#fff8e1" : "transparent" }}>
+                            <input type="checkbox" checked={effective}
+                              onChange={e => toggleMenu("user", u.user_id, m.key, e.target.checked)}
+                              title={hasOverride ? "Override utilisateur actif" : "Hérité du rôle"}
+                              style={{ width:15, height:15, cursor:"pointer", accentColor: hasOverride ? "#f39c12" : "#3498db" }} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize:"0.72rem", color:"#888", marginTop:"0.6rem" }}>
+              🟡 Cases en jaune = override utilisateur actif · Cases normales = hérité du rôle
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
