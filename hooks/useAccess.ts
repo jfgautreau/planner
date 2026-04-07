@@ -45,8 +45,9 @@ export function useAccess(): AccessInfo {
         return;
       }
 
-      const [{ data: appUser }, { data: accessData }, { data: menuRole }, { data: menuUser }] = await Promise.all([
-        supabase.from("AppUser").select("role").eq("user_id", user.id).single(),
+      const { data: appUser } = await supabase.from("AppUser").select("role").eq("user_id", user.id).single<{ role: string }>();
+
+      const [{ data: accessData }, { data: menuRole }, { data: menuUser }] = await Promise.all([
         supabase.from("UserAccess").select("role, can_read, can_write, sultant_id").eq("user_id", user.id),
         supabase.from("MenuAccess").select("menu, can_see").eq("target_type", "role").eq("target_id", appUser?.role ?? "consultation"),
         supabase.from("MenuAccess").select("menu, can_see").eq("target_type", "user").eq("target_id", user.id),
