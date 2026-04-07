@@ -574,6 +574,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                     const zB = conge?.zone_b || false;
                     const zC = conge?.zone_c || false;
                     const blocked = dow===0 || dow===6 || !!ferie;
+                    const isToday = dateStr === new Date().toISOString().slice(0,10);
                     const journee = affs.find(a => a.periode==="journee");
                     const matin   = affs.find(a => a.periode==="matin");
                     const aprem   = affs.find(a => a.periode==="aprem");
@@ -583,7 +584,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                     return (
                       <React.Fragment key={mi}>
                         {/* Numéro du jour */}
-                        <td style={{ textAlign:"center", background:"#eceff1", border:"1px solid #ddd", color:"#546e7a", fontSize:"0.58rem", padding:0, fontWeight:"bold" }}>
+                        <td style={{ textAlign:"center", background:isToday?"#111":"#eceff1", border:isToday?"2px solid #111":"1px solid #ddd", color:isToday?"white":"#546e7a", fontSize:"0.58rem", padding:0, fontWeight:"bold" }}>
                           {dayNum}
                         </td>
 
@@ -593,7 +594,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         </td>
 
                         {/* Libellé jour */}
-                        <td style={{ background:blocked?"#c8c8c8":"#f0f4f8", border:"1px solid #ddd", textAlign:"center", color:blocked?"#999":"#445", fontSize:"0.6rem", padding:0 }}>
+                        <td style={{ background:isToday?"#111":blocked?"#c8c8c8":"#f0f4f8", border:isToday?"2px solid #111":"1px solid #ddd", textAlign:"center", color:isToday?"white":blocked?"#999":"#445", fontSize:"0.6rem", padding:0 }}>
                           {label}
                         </td>
 
@@ -610,7 +611,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         <td
                           onClick={() => { if (!blocked && selectedCon && canRead) onFirstClick(dateStr, hasAffs); }}
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
-                          style={{ background:blocked?GRAY:(jStyle?.bg||"white"), border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
+                          style={{ background:blocked?GRAY:(jStyle?.bg||"white"), border:isToday?"2px solid #111":"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
                         >
                           {ferie && (
                             <div style={{ fontSize:"0.4rem", color:"#555", textAlign:"center", padding:"1px 2px", lineHeight:1.1, position:"relative", zIndex:1 }}>
