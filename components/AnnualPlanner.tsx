@@ -47,9 +47,8 @@ function getAffStyle(aff: Affectation) {
 }
 
 // ── Navbar fixe ──────────────────────────────────────────────────────────────
-export function FixedNav({ activePath, role }: { activePath: string; role?: string }) {
+export function FixedNav({ activePath, role, visibleMenus }: { activePath: string; role?: string; visibleMenus?: Set<string> }) {
   const router = useRouter();
-  const access = useAccess();
   const [menuOpen, setMenuOpen] = useState(false);
   const s = (path: string): React.CSSProperties => ({
     padding:"0.45rem 1rem", border:"none", borderRadius:4, cursor:"pointer",
@@ -64,17 +63,17 @@ export function FixedNav({ activePath, role }: { activePath: string; role?: stri
 
   const ALL_LINKS: { path: string; label: string; menu: MenuKey }[] = [
     { path:"/",             label:"📆 Calendrier", menu:"calendrier"    },
-    { path:"/planning",     label:"📅 Planning",   menu:"planning"      },
+    { path:"/planning",     label:"▦ Planning",    menu:"planning"      },
     { path:"/client",       label:"👥 Vue Client", menu:"client"        },
     { path:"/dashboardprod",label:"📊 TdB Prod",   menu:"dashboardprod" },
     { path:"/dashboardrh",  label:"📊 TdB RH",     menu:"dashboardrh"   },
     { path:"/settings",     label:"⚙️ Paramètres", menu:"settings"      },
   ];
 
-  // Filtrer selon visibleMenus (pendant le chargement, on affiche tout pour éviter le flash)
-  const navLinks = access.loading
-    ? ALL_LINKS
-    : ALL_LINKS.filter(l => access.visibleMenus.has(l.menu));
+  // Filtrer selon visibleMenus passé en prop
+  const navLinks = visibleMenus
+    ? ALL_LINKS.filter(l => visibleMenus.has(l.menu))
+    : ALL_LINKS;
   return (
     <>
       <div style={{ position:"fixed", top:0, left:0, right:0, height:46, background:NAVY, display:"flex", alignItems:"center", padding:"0 1rem", gap:"0.3rem", zIndex:500, boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
@@ -304,11 +303,11 @@ function useIsMobile() {
 type MobileCalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string; canEdit: boolean; canRead: boolean;
+  selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, onFirstClick }: MobileCalViewProps) {
+function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, onFirstClick }: MobileCalViewProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const dim = (mi: number) => new Date(year, mi + 1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -368,8 +367,7 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, c
           const journee = affs.find(a => a.periode === "journee");
           const matin   = affs.find(a => a.periode === "matin");
           const aprem   = affs.find(a => a.periode === "aprem");
-          const today   = new Date().toISOString().slice(0,10);
-          const isToday = dateStr === today;
+          const isToday = dateStr === todayStr;
           const zA = conge?.zone_a || false;
           const zB = conge?.zone_b || false;
           const zC = conge?.zone_c || false;
@@ -458,11 +456,11 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, c
 type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string; canEdit: boolean; canRead: boolean;
+  selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const affMap = useMemo(() => {
@@ -579,7 +577,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                     const zB = conge?.zone_b || false;
                     const zC = conge?.zone_c || false;
                     const blocked = dow===0 || dow===6 || !!ferie;
-                    const isToday = dateStr === new Date().toISOString().slice(0,10);
+                    const isToday = dateStr === todayStr;
                     const journee = affs.find(a => a.periode==="journee");
                     const matin   = affs.find(a => a.periode==="matin");
                     const aprem   = affs.find(a => a.periode==="aprem");
@@ -694,7 +692,8 @@ export default function AnnualPlanner() {
   const [modalDate, setModalDate]   = useState<string|null>(null);
   const [modalMode, setModalMode]   = useState<"quick"|"options"|"add">("quick");
   const [addPeriode, setAddPeriode] = useState<"journee"|"matin"|"aprem">("journee");
-  const today = new Date().getFullYear();
+  const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
+  const todayYear = useMemo(() => new Date().getFullYear(), []);
 
   useEffect(() => {
     if (access.loading) return;
@@ -725,16 +724,13 @@ export default function AnnualPlanner() {
   }, [access.loading, access.allowedSultantIds]);
 
   useEffect(() => {
-    supabase.from("JourFerie").select("date,nom")
-      .gte("date",`${year}-01-01`).lte("date",`${year}-12-31`)
-      .then(({ data }) => setJoursFeries(data||[]));
-    supabase.from("CongeJour").select("date,zone_a,zone_b,zone_c,nom_vacances")
-      .gte("date",`${year}-01-01`).lte("date",`${year}-12-31`)
-      .then(({ data, error }) => {
-        if (error) { console.error("CongeJour error:", error); return; }
-        console.log(`CongeJour ${year}: ${data?.length} jours`);
-        setConges((data||[]) as CongeJour[]);
-      });
+    Promise.all([
+      supabase.from("JourFerie").select("date,nom").gte("date",`${year}-01-01`).lte("date",`${year}-12-31`),
+      supabase.from("CongeJour").select("date,zone_a,zone_b,zone_c,nom_vacances").gte("date",`${year}-01-01`).lte("date",`${year}-12-31`),
+    ]).then(([{ data: jf }, { data: cg }]) => {
+      setJoursFeries(jf || []);
+      setConges((cg || []) as CongeJour[]);
+    });
   }, [year]);
 
   useEffect(() => {
@@ -788,13 +784,13 @@ export default function AnnualPlanner() {
 
   return (
     <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
-      <FixedNav activePath={pathname||"/"} />
+      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
           <span style={{ fontWeight:"bold", minWidth:42, textAlign:"center", fontSize:"0.9rem" }}>{year}</span>
           <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
-          {year!==today && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }}>Aujourd&apos;hui</button>}
+          {year!==todayYear && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }} onClick={() => setYear(todayYear)}>Aujourd&apos;hui</button>}
         </>}
         <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} disabled={access.role==="consultant"} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset", opacity: access.role==="consultant" ? 0.7 : 1 }}>
           <option value="">-- Consultant --</option>
@@ -813,8 +809,8 @@ export default function AnnualPlanner() {
 
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
-          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} onFirstClick={handleDayClick} />
+          ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
         }
       </div>
 

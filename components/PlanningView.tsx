@@ -195,6 +195,7 @@ export default function PlanningView() {
   const [joursFeries, setJoursFeries] = useState<JourFerie[]>([]);
   const [conges, setConges]           = useState<CongeJour[]>([]);
   const [loading, setLoading]         = useState(true);
+  const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
 
   // Drag
   const [dragMission, setDragMission] = useState<Mission|null>(null);
@@ -250,7 +251,7 @@ export default function PlanningView() {
       const ferie = joursFeries.find(j => j.date === ds);
       return { d, ds, dow, ferie, blocked: dow===0 || dow===6 || !!ferie };
     });
-  }, [year, month, joursFeries]);
+  }, [year, month, joursFeries, todayStr]);
 
   // Lookup affectations O(1)
   const affMap = useMemo(() => {
@@ -320,7 +321,7 @@ export default function PlanningView() {
     setDragMission(null); setDragAbsence(null); setDragOver(null);
   }, [canWrite, affMap, dragMission, dragAbsence, saveAff]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // todayStr déjà défini via useMemo
   const navBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
 
   const DOW_LABELS = ["Di","Lu","Ma","Me","Je","Ve","Sa"];
@@ -390,7 +391,7 @@ export default function PlanningView() {
                 Consultant
               </th>
               {days.map(day => {
-                const isToday = day.ds === today;
+                const isToday = day.ds === todayStr;
                 return (
                   <th key={day.ds} style={{
                     textAlign:"center", padding:"0.2rem 0",
@@ -426,7 +427,7 @@ export default function PlanningView() {
                   const journee = affs.find(a => a.periode==="journee");
                   const matin   = affs.find(a => a.periode==="matin");
                   const aprem   = affs.find(a => a.periode==="aprem");
-                  const isToday = day.ds === today;
+                  const isToday = day.ds === todayStr;
                   const canEdit = canWrite(sultant.id);
                   const isDragTarget = dragOver?.sultantId===sultant.id && dragOver?.date===day.ds;
 
