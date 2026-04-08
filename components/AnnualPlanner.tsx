@@ -790,7 +790,7 @@ export default function AnnualPlanner() {
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
           <span style={{ fontWeight:"bold", minWidth:42, textAlign:"center", fontSize:"0.9rem" }}>{year}</span>
           <button onClick={() => setYear(y=>y+1)} style={subBtn}>▶</button>
-          {year!==todayYear && <button onClick={() => setYear(today)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }} onClick={() => setYear(todayYear)}>Aujourd&apos;hui</button>}
+          {year!==todayYear && <button onClick={() => setYear(todayYear)} style={{ padding:"0.3rem 0.7rem", background:"#f39c12", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontWeight:"bold", fontSize:"0.82rem" }} onClick={() => setYear(todayYear)}>Aujourd&apos;hui</button>}
         </>}
         <select value={selectedCon} onChange={e=>setSelectedCon(e.target.value)} disabled={access.role==="consultant"} style={{ padding:"0.3rem 0.6rem", borderRadius:4, border:"1px solid #ccc", fontSize:"0.83rem", flex: isMobile ? 1 : "unset", opacity: access.role==="consultant" ? 0.7 : 1 }}>
           <option value="">-- Consultant --</option>
