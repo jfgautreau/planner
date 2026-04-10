@@ -14,6 +14,7 @@ const months    = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct"
 const monthsFull= ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const NAVY      = "#1a2744";
 const LS_YEAR   = "planner_selected_year";
+const LS_CON_RH = "planner_rh_selected_con";
 // Codes avec compteur de solde
 const CODES_COMPTEUR = ["RTT","CA"];
 
@@ -37,7 +38,10 @@ export default function DashboardRH() {
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [compteurs, setCompteurs]     = useState<Compteur[]>([]);
   const [loading, setLoading]         = useState(true);
-  const [selCon, setSelCon] = useState<string>("");  // sélection unique
+  const [selCon, setSelCon] = useState<string>(() => {
+    if (typeof window !== "undefined") { const s = localStorage.getItem(LS_CON_RH); return s || ""; }
+    return "";
+  });
 
   // Edition compteurs
   const [editingCompteurs, setEditingCompteurs] = useState<Record<string,number>>({});
@@ -45,6 +49,7 @@ export default function DashboardRH() {
   const [compteurMsg, setCompteurMsg]           = useState("");
 
   useEffect(()=>{ localStorage.setItem(LS_YEAR,String(year)); },[year]);
+  useEffect(()=>{ localStorage.setItem(LS_CON_RH, selCon); },[selCon]);
 
   useEffect(()=>{
     const load = async ()=>{
