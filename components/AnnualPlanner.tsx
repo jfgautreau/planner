@@ -11,7 +11,7 @@ type Absence     = { id: string; code: string; nom: string; color: string };
 type Affectation = {
   id: string; Date: string; Sultant: string;
   Mission: string|null; Absence: string|null;
-  periode: "journee"|"matin"|"aprem"; copil: boolean;
+  periode: "journee"|"matin"|"aprem"; copil: boolean; distanciel: boolean;
   mission?: Mission|null; absence?: Absence|null;
 };
 type JourFerie = { date: string; nom: string };
@@ -36,6 +36,9 @@ function getWeekNum(date: Date): number {
 
 function CopilCorner() {
   return <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 9px 9px 0", borderColor:"transparent #111 transparent transparent", zIndex:3, pointerEvents:"none" }} />;
+}
+function DistancielCorner() {
+  return <span style={{ position:"absolute", top:0, left:0, width:0, height:0, borderStyle:"solid", borderWidth:"9px 9px 0 0", borderColor:"#2980b9 transparent transparent transparent", zIndex:3, pointerEvents:"none" }} />;
 }
 function Sw({ bg }: { bg: string }) {
   return <span style={{ display:"inline-block", width:11, height:11, background:bg, border:"1px solid #ccc", marginRight:3, verticalAlign:"middle", borderRadius:2 }} />;
@@ -195,9 +198,10 @@ type OptionsModalProps = {
   onChangeAff: (id: string, type: "mission"|"absence", periode: "journee"|"matin"|"aprem", existingId: string) => void;
   onDelete: (id: string) => void;
   onCopil: (aff: Affectation) => void;
+  onDistanciel: (aff: Affectation) => void;
   onAddSlot: (periode: "journee"|"matin"|"aprem") => void;
 };
-function OptionsModal({ date, affectations, missions, absences, onClose, onChangeAff, onDelete, onCopil, onAddSlot }: OptionsModalProps) {
+function OptionsModal({ date, affectations, missions, absences, onClose, onChangeAff, onDelete, onCopil, onDistanciel, onAddSlot }: OptionsModalProps) {
   const affs    = affectations.filter(a => a.Date.startsWith(date));
   const journee = affs.find(a => a.periode==="journee");
   const matin   = affs.find(a => a.periode==="matin");
@@ -260,6 +264,9 @@ function OptionsModal({ date, affectations, missions, absences, onClose, onChang
                 <button onClick={() => { onCopil(aff); }} style={{ ...optBtn("#e67e22"), background:aff.copil?"#e67e22":"white", color:aff.copil?"white":"#e67e22" }}>
                   ★ COPIL {aff.copil?"✓":""}
                 </button>
+                <button onClick={() => { onDistanciel(aff); }} style={{ ...optBtn("#2980b9"), background:aff.distanciel?"#2980b9":"white", color:aff.distanciel?"white":"#2980b9" }}>
+                  ⊟ Distanciel {aff.distanciel?"✓":""}
+                </button>
                 <button onClick={() => { onDelete(aff.id); onClose(); }} style={optBtn("#e74c3c")}>🗑 Supprimer</button>
               </div>
             </div>
@@ -271,9 +278,9 @@ function OptionsModal({ date, affectations, missions, absences, onClose, onChang
           <div style={{ borderTop:"1px solid #eee", paddingTop:"0.6rem", marginTop:"0.2rem" }}>
             <div style={{ fontSize:"0.72rem", color:"#aaa", marginBottom:"0.4rem" }}>Ajouter un créneau :</div>
             <div style={{ display:"flex", gap:"0.4rem" }}>
-              {!matin  && <button onClick={() => { onAddSlot("matin");   onClose(); }} style={optBtn(NAVY)}>+ Matin</button>}
-              {!aprem  && <button onClick={() => { onAddSlot("aprem");   onClose(); }} style={optBtn(NAVY)}>+ Après-midi</button>}
-              {!matin && !aprem && <button onClick={() => { onAddSlot("journee"); onClose(); }} style={optBtn(NAVY)}>+ Journée</button>}
+              {!matin  && <button onClick={() => { onAddSlot("matin");   }} style={optBtn(NAVY)}>+ Matin</button>}
+              {!aprem  && <button onClick={() => { onAddSlot("aprem");   }} style={optBtn(NAVY)}>+ Après-midi</button>}
+              {!matin && !aprem && <button onClick={() => { onAddSlot("journee"); }} style={optBtn(NAVY)}>+ Journée</button>}
             </div>
           </div>
         )}
@@ -624,6 +631,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                           {!blocked && journee && jStyle && (
                             <div style={{ position:"absolute", inset:0, background:jStyle.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
                               {journee.copil && <CopilCorner />}
+                              {journee.distanciel && <DistancielCorner />}
                               <span style={{ color:jStyle.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle.code}</span>
                             </div>
                           )}
@@ -632,12 +640,14 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                               {(() => { const s=matin?getAffStyle(matin):null; return (
                                 <div style={{ flex:1, background:s?.bg||"#e8e8e8", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(255,255,255,0.5)" }}>
                                   {matin?.copil && <CopilCorner />}
+                                  {matin?.distanciel && <DistancielCorner />}
                                   {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
                               );})()}
                               {(() => { const s=aprem?getAffStyle(aprem):null; return (
                                 <div style={{ flex:1, background:s?.bg||"#e8e8e8", display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
                                   {aprem?.copil && <CopilCorner />}
+                                  {aprem?.distanciel && <DistancielCorner />}
                                   {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
                               );})()}
@@ -736,7 +746,7 @@ export default function AnnualPlanner() {
   useEffect(() => {
     if (!selectedCon) return;
     supabase.from("Affectation")
-      .select(`id,Date,Mission,Absence,Sultant,periode,copil,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+      .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
       .eq("Sultant", selectedCon).gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`)
       .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
@@ -761,8 +771,8 @@ export default function AnnualPlanner() {
       }));
     } else {
       const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:modalDate, Sultant:selectedCon, periode, copil:false, ...payload })
-        .select(`id,Date,Mission,Absence,Sultant,periode,copil,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+        .insert({ Date:modalDate, Sultant:selectedCon, periode, copil:false, distanciel:false, ...payload })
+        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (error) return;
       setAffectations(prev => [...prev, data as unknown as Affectation]);
@@ -777,6 +787,11 @@ export default function AnnualPlanner() {
   const toggleCopil = useCallback(async (aff: Affectation) => {
     await supabase.from("Affectation").update({ copil:!aff.copil }).eq("id",aff.id);
     setAffectations(prev => prev.map(a => a.id===aff.id?{...a,copil:!aff.copil}:a));
+  }, []);
+
+  const toggleDistanciel = useCallback(async (aff: Affectation) => {
+    await supabase.from("Affectation").update({ distanciel:!aff.distanciel }).eq("id",aff.id);
+    setAffectations(prev => prev.map(a => a.id===aff.id?{...a,distanciel:!aff.distanciel}:a));
   }, []);
 
 
@@ -831,6 +846,7 @@ export default function AnnualPlanner() {
           onChangeAff={(id, type, periode, existingId) => saveAff(id, type, periode, existingId)}
           onDelete={deleteAff}
           onCopil={toggleCopil}
+          onDistanciel={toggleDistanciel}
           onAddSlot={(periode) => { setAddPeriode(periode); setModalMode("quick"); }}
         />
       )}
