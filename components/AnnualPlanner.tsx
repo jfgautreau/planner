@@ -245,17 +245,30 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                 <button key={m.id}
                   onClick={() => {
                     if (!canEdit) return;
-                    if (isAff && selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                    else if (isAff) { setSelectedAffId(affM!.id); }
-                    else { onPick(m.id, "mission", periode); }
+                    // Si la mission est déjà affectée ce jour → sélectionner pour modifier/supprimer
+                    if (isAff) { setSelectedAffId(affM!.id); return; }
+                    // Si une affectation est sélectionnée → la remplacer par cette mission
+                    if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); return; }
+                    // Vérifier que la période est libre
+                    const periodeOccupee = affs.some(a => a.periode === periode || a.periode === "journee");
+                    if (periodeOccupee && !journee) return; // demi-journée déjà prise
+                    if (journee) return; // journée complète déjà prise
+                    onPick(m.id, "mission", periode);
                   }}
-                  style={{
-                    background: isAff ? m.Color : "white", color: isAff ? (m.TextColor||"#fff") : m.Color,
-                    border: isSel ? `2px solid #f39c12` : `1.5px solid ${m.Color}`,
-                    borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
-                    fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
-                    outline: isSel ? "2px solid #f39c12" : "none",
-                  }}
+                  style={(() => {
+                    const periodeLibre = !affs.some(a => a.periode === periode || a.periode === "journee");
+                    const disponible = isAff || (periodeLibre && !journee) || !!selectedAff;
+                    return {
+                      background: isAff ? m.Color : "white",
+                      color: isAff ? (m.TextColor||"#fff") : m.Color,
+                      border: isSel ? `2px solid #f39c12` : `1.5px solid ${m.Color}`,
+                      borderRadius:4, padding:"0.18rem 0.4rem",
+                      cursor: disponible ? "pointer" : "not-allowed",
+                      fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
+                      outline: isSel ? "2px solid #f39c12" : "none",
+                      opacity: disponible ? 1 : 0.35,
+                    };
+                  })()}
                 >{m.Code}</button>
               );
             })}
@@ -269,15 +282,29 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                 <button key={a.id}
                   onClick={() => {
                     if (!canEdit) return;
-                    if (isAff) { setSelectedAffId(affA!.id); }
-                    else { onPick(a.id, "absence", periode); }
+                    // Si déjà affectée → sélectionner
+                    if (isAff) { setSelectedAffId(affA!.id); return; }
+                    // Si une affectation sélectionnée → remplacer
+                    if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); return; }
+                    // Vérifier que la période est libre
+                    const periodeOccupee = affs.some(af => af.periode === periode || af.periode === "journee");
+                    if (periodeOccupee && !journee) return;
+                    if (journee) return;
+                    onPick(a.id, "absence", periode);
                   }}
-                  style={{
-                    background: isAff ? a.color : "white", color: isAff ? "#fff" : a.color,
-                    border: isSel ? `2px solid #f39c12` : `1.5px solid ${a.color}`,
-                    borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
-                    fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
-                  }}
+                  style={(() => {
+                    const periodeLibre = !affs.some(af => af.periode === periode || af.periode === "journee");
+                    const disponible = isAff || (periodeLibre && !journee) || !!selectedAff;
+                    return {
+                      background: isAff ? a.color : "white",
+                      color: isAff ? "#fff" : a.color,
+                      border: isSel ? `2px solid #f39c12` : `1.5px solid ${a.color}`,
+                      borderRadius:4, padding:"0.18rem 0.4rem",
+                      cursor: disponible ? "pointer" : "not-allowed",
+                      fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
+                      opacity: disponible ? 1 : 0.35,
+                    };
+                  })()}
                 >{a.code}</button>
               );
             })}
