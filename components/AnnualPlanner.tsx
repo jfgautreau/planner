@@ -148,6 +148,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const [periode, setPeriode] = useState<"journee"|"matin"|"aprem">("journee");
   // selectedAffId = affectation cliquée (pour COPIL, Dist, Suppr, changer période)
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
+  const [autoSelectNext, setAutoSelectNext] = useState(false);
 
   const affs    = affectations.filter(a => a.Date.startsWith(date));
   const journee = affs.find(a => a.periode==="journee");
@@ -161,11 +162,20 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   // Reset quand on change de date
   useEffect(() => {
     setSelectedAffId(null);
-    // Auto-sélectionner la période libre
+    setAutoSelectNext(false);
     if (!journee && !matin && !aprem) setPeriode("journee");
     else if (!journee && !matin)      setPeriode("matin");
     else if (!journee && !aprem)      setPeriode("aprem");
   }, [date]);
+
+  // Auto-sélectionner la dernière aff créée pour pouvoir changer sa période
+  useEffect(() => {
+    if (autoSelectNext && affs.length > 0) {
+      const last = affs[affs.length - 1];
+      setSelectedAffId(last.id);
+      setAutoSelectNext(false);
+    }
+  }, [affs, autoSelectNext]);
 
   // Touche Suppr
   const selectedAffRef = React.useRef<Affectation|null>(null);
@@ -219,41 +229,30 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       {/* Corps 4 colonnes */}
       <div style={{ display:"flex", height: PANEL_HEIGHT - 22, alignItems:"stretch" }}>
 
-        {/* COL 1 : Période
-            - Si aucune aff : coloré = période choisie pour la prochaine affectation
-            - Si aff sélectionnée : coloré = période de cette aff (et clic change sa période)
-            - Coloré aussi si l'aff de ce créneau est sélectionnée */}
+        {/* COL 1 : Période — ligne 1: Journée / ligne 2: Matin + A-midi */}
         <div style={col}>
-          {(["journee","matin","aprem"] as const).map((p, idx) => {
-            const affDeP = affs.find(a => a.periode === p);
-            // Active si : aff sélectionnée a cette période OU (pas d'aff sélectionnée et c'est la période choisie)
-            const active = selectedAff ? selectedAff.periode === p : periode === p;
-            // Coloré en vert si occupé par une aff
-            const occupied = !!affDeP;
-            return idx === 0 ? (
-              <button key={p} onClick={() => {
-                if (selectedAff && occupied && affDeP!.id !== selectedAff.id) return; // journée prise par autre
-                if (selectedAff) { changePeriode(selectedAff, p); }
-                else if (!occupied) setPeriode(p);
-              }} style={btn("#1a2744", active || (occupied && !selectedAff))}>
-                Journée
-              </button>
-            ) : idx === 1 ? (
-              <button key={p} onClick={() => {
-                if (selectedAff) { changePeriode(selectedAff, p); }
-                else if (!occupied && !journee) setPeriode(p);
-              }} style={btn("#1a2744", active || (occupied && !selectedAff))}>
-                Matin
-              </button>
-            ) : (
-              <button key={p} onClick={() => {
-                if (selectedAff) { changePeriode(selectedAff, p); }
-                else if (!occupied && !journee) setPeriode(p);
-              }} style={btn("#1a2744", active || (occupied && !selectedAff))}>
-                A-midi
-              </button>
-            );
-          })}
+          {/* Ligne 1 : Journée */}
+          <button onClick={() => {
+            if (selectedAff) { changePeriode(selectedAff, "journee"); }
+            else if (!journee) setPeriode("journee");
+          }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="journee" : periode==="journee")}>
+            Journée
+          </button>
+          {/* Ligne 2 : Matin + A-midi côte à côte */}
+          <div style={{ display:"flex", gap:"0.25rem" }}>
+            <button onClick={() => {
+              if (selectedAff) { changePeriode(selectedAff, "matin"); }
+              else if (!matin && !journee) setPeriode("matin");
+            }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="matin" : periode==="matin")}>
+              Matin
+            </button>
+            <button onClick={() => {
+              if (selectedAff) { changePeriode(selectedAff, "aprem"); }
+              else if (!aprem && !journee) setPeriode("aprem");
+            }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="aprem" : periode==="aprem")}>
+              A-midi
+            </button>
+          </div>
         </div>
 
         {/* COL 2 : Missions + Absences
@@ -272,7 +271,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   if (!canEdit) return;
                   if (active) { setSelectedAffId(affM!.id); }
                   else if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                  else if (!journee && !affs.some(a => a.periode === periode)) { onPick(m.id, "mission", periode); }
+                  else if (!journee && !affs.some(a => a.periode === periode)) { setAutoSelectNext(true); onPick(m.id, "mission", periode); }
                 }} style={{
                   background: active ? m.Color : "white",
                   color: active ? (m.TextColor||"#fff") : m.Color,
@@ -294,7 +293,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   if (!canEdit) return;
                   if (active) { setSelectedAffId(affA!.id); }
                   else if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                  else if (!journee && !affs.some(af => af.periode === periode)) { onPick(a.id, "absence", periode); }
+                  else if (!journee && !affs.some(af => af.periode === periode)) { setAutoSelectNext(true); onPick(a.id, "absence", periode); }
                 }} style={{
                   background: active ? a.color : "white",
                   color: active ? "#fff" : a.color,
