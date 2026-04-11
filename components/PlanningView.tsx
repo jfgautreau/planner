@@ -13,7 +13,7 @@ type Absence     = { id: string; code: string; nom: string; color: string };
 type Affectation = {
   id: string; Date: string; Sultant: string;
   Mission: string|null; Absence: string|null;
-  periode: "journee"|"matin"|"aprem"; copil: boolean;
+  periode: "journee"|"matin"|"aprem"; copil: boolean; distanciel: boolean;
   mission?: Mission|null; absence?: Absence|null;
 };
 type JourFerie  = { date: string; nom: string };
