@@ -245,8 +245,8 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                 <button key={m.id}
                   onClick={() => {
                     if (!canEdit) return;
-                    if (selectedAff && isAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                    else if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+                    if (isAff && selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+                    else if (isAff) { setSelectedAffId(affM!.id); }
                     else { onPick(m.id, "mission", periode); }
                   }}
                   style={{
@@ -255,11 +255,6 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                     borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
                     fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
                     outline: isSel ? "2px solid #f39c12" : "none",
-                  }}
-                  onClick={() => {
-                    if (!canEdit) return;
-                    if (isAff) { setSelectedAffId(affM!.id); }
-                    else { onPick(m.id, "mission", periode); }
                   }}
                 >{m.Code}</button>
               );
