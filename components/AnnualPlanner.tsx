@@ -680,16 +680,6 @@ export default function AnnualPlanner() {
   const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
   const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
 
-  // Keyboard shortcut Ctrl+C / Ctrl+V
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!panelDate) return;
-      if (e.ctrlKey && e.key === "c") { copyDay(); }
-      if (e.ctrlKey && e.key === "v") { pasteDay(); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [panelDate, copyDay, pasteDay]);
   const todayYear = useMemo(() => new Date().getFullYear(), []);
 
   useEffect(() => {
@@ -792,6 +782,18 @@ export default function AnnualPlanner() {
       if (!error && data) setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
   }, [panelDate, selectedCon, clipboard, canEditSelected, affectations]);
+
+
+  // Keyboard shortcut Ctrl+C / Ctrl+V
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!panelDate) return;
+      if (e.ctrlKey && e.key === "c") { copyDay(); }
+      if (e.ctrlKey && e.key === "v") { pasteDay(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [panelDate, copyDay, pasteDay]);
 
   const toggleDistanciel = useCallback(async (aff: Affectation) => {
     await supabase.from("Affectation").update({ distanciel:!aff.distanciel }).eq("id",aff.id);
