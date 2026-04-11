@@ -43,7 +43,7 @@ function DistancielCorner() {
 function Sw({ bg }: { bg: string }) {
   return <span style={{ display:"inline-block", width:11, height:11, background:bg, border:"1px solid #ccc", marginRight:3, verticalAlign:"middle", borderRadius:2 }} />;
 }
-export function getAffStyle(aff: Affectation) {
+function getAffStyle(aff: Affectation) {
   if (aff.mission) return { bg: aff.mission.Color||"#ccc", text: aff.mission.TextColor||"#fff", code: aff.mission.Code };
   if (aff.absence) return { bg: aff.absence.color||"#ccc", text: "#fff", code: aff.absence.code };
   return { bg:"#eee", text:"#333", code:"?" };
@@ -124,151 +124,174 @@ export function FixedNav({ activePath, role, visibleMenus }: { activePath: strin
 }
 
 // ── Modale de premier clic : choisir mission (1 clic = validé) ───────────────
-// ── Bandeau bas de modification ─────────────────────────────────────────────
-type PanelProps = {
-  date: string; sultantName: string;
-  affectations: Affectation[];
-  missions: Mission[]; absences: Absence[];
-  canEdit: boolean;
-  clipboard: Affectation[] | null;
+type QuickPickProps = {
+  date: string; missions: Mission[]; absences: Absence[];
+  defaultPeriode: "journee"|"matin"|"aprem";
   onPick: (id: string, type: "mission"|"absence", periode: "journee"|"matin"|"aprem") => void;
+  onClose: () => void;
+};
+function QuickPick({ date, missions, absences, defaultPeriode, onPick, onClose }: QuickPickProps) {
+  const [periode, setPeriode] = useState<"journee"|"matin"|"aprem">(defaultPeriode);
+  const label = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR",{ weekday:"long", day:"numeric", month:"long" });
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:600 }}
+      onClick={e => { if (e.target===e.currentTarget) onClose(); }}>
+      <div style={{ background:"white", borderRadius:12, padding:"1.2rem", minWidth:320, maxWidth:"92vw", boxShadow:"0 8px 32px rgba(0,0,0,0.2)", maxHeight:"88vh", overflowY:"auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.8rem" }}>
+          <h3 style={{ margin:0, fontSize:"0.9rem", textTransform:"capitalize", color:NAVY }}>{label}</h3>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.2rem", color:"#aaa" }}>✕</button>
+        </div>
+
+        {/* Choix période */}
+        <div style={{ display:"flex", gap:"0.4rem", marginBottom:"0.8rem" }}>
+          {(["journee","matin","aprem"] as const).map(p => (
+            <button key={p} onClick={() => setPeriode(p)} style={{
+              flex:1, padding:"0.35rem 0", border:`2px solid ${periode===p?NAVY:"#ccc"}`,
+              borderRadius:4, background:periode===p?NAVY:"white",
+              color:periode===p?"white":"#555", fontWeight:"bold", cursor:"pointer", fontSize:"0.75rem",
+            }}>
+              {p==="journee"?"Journée":p==="matin"?"Matin":"Après-midi"}
+            </button>
+          ))}
+        </div>
+
+        {/* Missions — 1 clic = validé */}
+        <div style={{ fontSize:"0.65rem", color:"#aaa", fontWeight:"bold", textTransform:"uppercase", marginBottom:"0.3rem" }}>Missions</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:"0.22rem", marginBottom:"0.6rem" }}>
+          {missions.map(m => (
+            <button key={m.id} onClick={() => { onPick(m.id, "mission", periode); onClose(); }} style={{
+              background:m.Color, color:m.TextColor||"#fff",
+              border:`2px solid ${m.Color}`, borderRadius:4,
+              padding:"0.3rem 0.6rem", cursor:"pointer", fontWeight:"bold",
+              fontSize:"0.75rem", textAlign:"left", display:"flex", alignItems:"center", gap:6,
+            }}>
+              <span style={{ display:"inline-block", width:9, height:9, borderRadius:2, background:m.TextColor||"#fff", opacity:0.6, flexShrink:0 }} />
+              {m.Code} — {m.Client}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ fontSize:"0.65rem", color:"#aaa", fontWeight:"bold", textTransform:"uppercase", marginBottom:"0.3rem" }}>Absences</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:"0.22rem" }}>
+          {absences.map(a => (
+            <button key={a.id} onClick={() => { onPick(a.id, "absence", periode); onClose(); }} style={{
+              background:a.color, color:"#fff",
+              border:`2px solid ${a.color}`, borderRadius:4,
+              padding:"0.3rem 0.6rem", cursor:"pointer", fontWeight:"bold",
+              fontSize:"0.75rem", textAlign:"left", display:"flex", alignItems:"center", gap:6,
+            }}>
+              <span style={{ display:"inline-block", width:9, height:9, borderRadius:2, background:"rgba(255,255,255,0.5)", flexShrink:0 }} />
+              {a.code} — {a.nom}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modale d'options (2e clic sur case déjà affectée) ────────────────────────
+type OptionsModalProps = {
+  date: string; affectations: Affectation[];
+  missions: Mission[]; absences: Absence[];
+  onClose: () => void;
   onChangeAff: (id: string, type: "mission"|"absence", periode: "journee"|"matin"|"aprem", existingId: string) => void;
   onDelete: (id: string) => void;
   onCopil: (aff: Affectation) => void;
   onDistanciel: (aff: Affectation) => void;
   onAddSlot: (periode: "journee"|"matin"|"aprem") => void;
-  onCopy: () => void;
-  onPaste: () => void;
-  onClose: () => void;
 };
-
-export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onAddSlot, onCopy, onPaste, onClose }: PanelProps) {
-  const [periode, setPeriode] = useState<"journee"|"matin"|"aprem">("journee");
-  const [pickingFor, setPickingFor] = useState<{existingId?: string; periode: "journee"|"matin"|"aprem"} | null>(null);
-
+function OptionsModal({ date, affectations, missions, absences, onClose, onChangeAff, onDelete, onCopil, onDistanciel, onAddSlot }: OptionsModalProps) {
   const affs    = affectations.filter(a => a.Date.startsWith(date));
   const journee = affs.find(a => a.periode==="journee");
   const matin   = affs.find(a => a.periode==="matin");
   const aprem   = affs.find(a => a.periode==="aprem");
-  const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
-  const hasAffs = affs.length > 0;
+  const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR",{ weekday:"long", day:"numeric", month:"long" });
+  const [editingAff, setEditingAff] = useState<Affectation|null>(null);
+  const [editPeriode, setEditPeriode] = useState<"journee"|"matin"|"aprem">("journee");
 
-  const allOpts = [
-    ...missions.map(m => ({ id:m.id, label:`${m.Code} — ${m.Client}`, color:m.Color, textColor:m.TextColor||"#fff", type:"mission" as const })),
-    ...absences.map(a => ({ id:a.id, label:`${a.code} — ${a.nom}`, color:a.color, textColor:"#fff", type:"absence" as const })),
-  ];
-
-  const ob = (color: string, active = false): React.CSSProperties => ({
-    padding:"0.22rem 0.55rem", border:`1.5px solid ${color}`, borderRadius:4,
-    background: active ? color : "white", color: active ? "white" : color,
-    cursor:"pointer", fontWeight:"bold", fontSize:"0.72rem", whiteSpace:"nowrap",
-  });
-
-  return (
-    <div style={{
-      position:"fixed", bottom:0, left:0, right:0, zIndex:600,
-      background:"white", borderTop:"2px solid #1a2744",
-      boxShadow:"0 -4px 20px rgba(0,0,0,0.15)",
-      maxHeight:"50vh", overflowY:"auto",
-    }}>
-      {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", gap:"0.6rem", padding:"0.5rem 1rem", background:"#1a2744", color:"white" }}>
-        <span style={{ fontWeight:"bold", fontSize:"0.88rem", textTransform:"capitalize" }}>{label}</span>
-        {sultantName && <span style={{ fontSize:"0.78rem", opacity:0.7 }}>— {sultantName}</span>}
-        <div style={{ marginLeft:"auto", display:"flex", gap:"0.4rem" }}>
-          {hasAffs && canEdit && (
-            <button onClick={onCopy} style={{ padding:"0.2rem 0.6rem", background:"#f39c12", border:"none", borderRadius:3, color:"white", cursor:"pointer", fontSize:"0.72rem", fontWeight:"bold" }}>
-              📋 Copier (Ctrl+C)
-            </button>
-          )}
-          {clipboard && canEdit && (
-            <button onClick={onPaste} style={{ padding:"0.2rem 0.6rem", background:"#27ae60", border:"none", borderRadius:3, color:"white", cursor:"pointer", fontSize:"0.72rem", fontWeight:"bold" }}>
-              📌 Coller (Ctrl+V)
-            </button>
-          )}
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", cursor:"pointer", fontSize:"1.1rem", padding:"0 0.3rem" }}>✕</button>
+  if (editingAff) {
+    // Sous-vue : changer la mission de cette affectation
+    const allOpts = [
+      ...missions.map(m => ({ id:m.id, label:`${m.Code} — ${m.Client}`, color:m.Color, textColor:m.TextColor||"#fff", type:"mission" as const })),
+      ...absences.map(a => ({ id:a.id, label:`${a.code} — ${a.nom}`, color:a.color, textColor:"#fff", type:"absence" as const })),
+    ];
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:600 }}
+        onClick={e => { if (e.target===e.currentTarget) { setEditingAff(null); onClose(); } }}>
+        <div style={{ background:"white", borderRadius:12, padding:"1.2rem", minWidth:300, maxWidth:"92vw", boxShadow:"0 8px 32px rgba(0,0,0,0.2)", maxHeight:"88vh", overflowY:"auto" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.8rem" }}>
+            <h3 style={{ margin:0, fontSize:"0.9rem", color:NAVY }}>Changer — {editingAff.periode}</h3>
+            <button onClick={() => setEditingAff(null)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.2rem", color:"#aaa" }}>←</button>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:"0.22rem" }}>
+            {allOpts.map(o => (
+              <button key={o.id} onClick={() => { onChangeAff(o.id, o.type, editingAff.periode, editingAff.id); setEditingAff(null); onClose(); }} style={{
+                background:o.color, color:o.textColor, border:`2px solid ${o.color}`, borderRadius:4,
+                padding:"0.3rem 0.6rem", cursor:"pointer", fontWeight:"bold", fontSize:"0.75rem",
+                textAlign:"left", display:"flex", alignItems:"center", gap:6,
+              }}>
+                <span style={{ display:"inline-block", width:9, height:9, borderRadius:2, background:"rgba(255,255,255,0.5)", flexShrink:0 }} />
+                {o.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+    );
+  }
 
-      <div style={{ padding:"0.6rem 1rem" }}>
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:600 }}
+      onClick={e => { if (e.target===e.currentTarget) onClose(); }}>
+      <div style={{ background:"white", borderRadius:12, padding:"1.2rem", minWidth:300, maxWidth:"92vw", boxShadow:"0 8px 32px rgba(0,0,0,0.2)", maxHeight:"88vh", overflowY:"auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.8rem" }}>
+          <h3 style={{ margin:0, fontSize:"0.9rem", textTransform:"capitalize", color:NAVY }}>{label}</h3>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.2rem", color:"#aaa" }}>✕</button>
+        </div>
+
         {/* Affectations existantes */}
-        {affs.length > 0 && (
-          <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", marginBottom:"0.6rem" }}>
-            {affs.map(aff => {
-              const st = getAffStyle(aff);
-              return (
-                <div key={aff.id} style={{ display:"flex", alignItems:"center", gap:"0.3rem", background:"#f8f9fa", borderRadius:6, padding:"0.3rem 0.5rem", border:"1px solid #e0e0e0" }}>
-                  <span style={{ background:st.bg, color:st.text, padding:"0.1rem 0.45rem", borderRadius:3, fontWeight:"bold", fontSize:"0.75rem" }}>{st.code}</span>
-                  <span style={{ fontSize:"0.72rem", color:"#888" }}>{aff.periode==="journee"?"Journée":aff.periode==="matin"?"Matin":"Après-midi"}</span>
-                  {canEdit && <>
-                    <button onClick={() => setPickingFor({existingId:aff.id, periode:aff.periode})} style={ob("#3498db")}>✏️</button>
-                    <button onClick={() => onCopil(aff)} style={ob("#e67e22", aff.copil)}>★</button>
-                    <button onClick={() => onDistanciel(aff)} style={ob("#2980b9", aff.distanciel)}>⊟</button>
-                    <button onClick={() => onDelete(aff.id)} style={ob("#e74c3c")}>🗑</button>
-                  </>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Picker mission/absence */}
-        {canEdit && (pickingFor !== null || !hasAffs) && (
-          <div>
-            {/* Sélecteur période (seulement si case vide ou ajout) */}
-            {(pickingFor === null || !pickingFor.existingId) && !journee && (
-              <div style={{ display:"flex", gap:"0.3rem", marginBottom:"0.5rem" }}>
-                {(["journee","matin","aprem"] as const).map(p => (
-                  <button key={p} onClick={() => setPeriode(p)} style={{
-                    padding:"0.25rem 0.6rem", border:`1.5px solid ${periode===p?"#1a2744":"#ccc"}`,
-                    borderRadius:4, background:periode===p?"#1a2744":"white",
-                    color:periode===p?"white":"#555", fontWeight:"bold", cursor:"pointer", fontSize:"0.72rem",
-                  }}>
-                    {p==="journee"?"Journée":p==="matin"?"Matin":"Après-midi"}
-                  </button>
-                ))}
+        {affs.map(aff => {
+          const st = getAffStyle(aff);
+          return (
+            <div key={aff.id} style={{ border:"1px solid #eee", borderRadius:8, padding:"0.6rem", marginBottom:"0.5rem" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.4rem" }}>
+                <span style={{ background:st.bg, color:st.text, padding:"0.15rem 0.5rem", borderRadius:3, fontWeight:"bold", fontSize:"0.8rem" }}>{st.code}</span>
+                <span style={{ fontSize:"0.75rem", color:"#888" }}>{aff.periode==="journee"?"Journée":aff.periode==="matin"?"Matin":"Après-midi"}</span>
               </div>
-            )}
-            {/* Liste missions + absences */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"0.3rem" }}>
-              {allOpts.map(o => (
-                <button key={o.id} onClick={() => {
-                  if (pickingFor?.existingId) {
-                    onChangeAff(o.id, o.type, pickingFor.periode, pickingFor.existingId);
-                  } else {
-                    onPick(o.id, o.type, periode);
-                  }
-                  setPickingFor(null);
-                }} style={{
-                  background:o.color, color:o.textColor, border:`1.5px solid ${o.color}`,
-                  borderRadius:4, padding:"0.22rem 0.55rem", cursor:"pointer",
-                  fontWeight:"bold", fontSize:"0.72rem",
-                }}>{o.label}</button>
-              ))}
+              <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>
+                <button onClick={() => setEditingAff(aff)} style={optBtn("#3498db")}>✏️ Changer</button>
+                <button onClick={() => { onCopil(aff); }} style={{ ...optBtn("#e67e22"), background:aff.copil?"#e67e22":"white", color:aff.copil?"white":"#e67e22" }}>
+                  ★ COPIL {aff.copil?"✓":""}
+                </button>
+                <button onClick={() => { onDistanciel(aff); }} style={{ ...optBtn("#2980b9"), background:aff.distanciel?"#2980b9":"white", color:aff.distanciel?"white":"#2980b9" }}>
+                  ⊟ Distanciel {aff.distanciel?"✓":""}
+                </button>
+                <button onClick={() => { onDelete(aff.id); onClose(); }} style={optBtn("#e74c3c")}>🗑 Supprimer</button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })}
 
-        {/* Ajouter créneau */}
-        {canEdit && hasAffs && !journee && (!matin || !aprem) && pickingFor === null && (
-          <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.4rem", paddingTop:"0.4rem", borderTop:"1px solid #eee" }}>
-            <span style={{ fontSize:"0.72rem", color:"#888", alignSelf:"center" }}>Ajouter :</span>
-            {!matin  && <button onClick={() => { onAddSlot("matin");   setPickingFor({periode:"matin"}); }} style={ob("#1a2744")}>+ Matin</button>}
-            {!aprem  && <button onClick={() => { onAddSlot("aprem");   setPickingFor({periode:"aprem"}); }} style={ob("#1a2744")}>+ Après-midi</button>}
-            {!matin && !aprem && <button onClick={() => { onAddSlot("journee"); setPickingFor({periode:"journee"}); }} style={ob("#1a2744")}>+ Journée</button>}
+        {/* Ajouter un créneau supplémentaire */}
+        {!journee && (!matin || !aprem) && (
+          <div style={{ borderTop:"1px solid #eee", paddingTop:"0.6rem", marginTop:"0.2rem" }}>
+            <div style={{ fontSize:"0.72rem", color:"#aaa", marginBottom:"0.4rem" }}>Ajouter un créneau :</div>
+            <div style={{ display:"flex", gap:"0.4rem" }}>
+              {!matin  && <button onClick={() => { onAddSlot("matin");   }} style={optBtn(NAVY)}>+ Matin</button>}
+              {!aprem  && <button onClick={() => { onAddSlot("aprem");   }} style={optBtn(NAVY)}>+ Après-midi</button>}
+              {!matin && !aprem && <button onClick={() => { onAddSlot("journee"); }} style={optBtn(NAVY)}>+ Journée</button>}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
-
 const optBtn = (color: string): React.CSSProperties => ({
   padding:"0.25rem 0.6rem", border:`2px solid ${color}`, borderRadius:4,
   background:"white", color, cursor:"pointer", fontWeight:"bold", fontSize:"0.72rem",
 });
-
-
 
 
 // ── Hook mobile ───────────────────────────────────────────────────────────────
@@ -675,21 +698,11 @@ export default function AnnualPlanner() {
     return new Date().getFullYear();
   });
 
-  const [panelDate, setPanelDate]     = useState<string|null>(null);
-  const [addPeriode, setAddPeriode]   = useState<"journee"|"matin"|"aprem">("journee");
-  const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
+  // Modale active : "quick" = premier clic (pas d'aff), "options" = 2e clic (aff existante), "add" = ajouter créneau
+  const [modalDate, setModalDate]   = useState<string|null>(null);
+  const [modalMode, setModalMode]   = useState<"quick"|"options"|"add">("quick");
+  const [addPeriode, setAddPeriode] = useState<"journee"|"matin"|"aprem">("journee");
   const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
-
-  // Keyboard shortcut Ctrl+C / Ctrl+V
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!panelDate) return;
-      if (e.ctrlKey && e.key === "c") { copyDay(); }
-      if (e.ctrlKey && e.key === "v") { pasteDay(); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [panelDate, copyDay, pasteDay]);
   const todayYear = useMemo(() => new Date().getFullYear(), []);
 
   useEffect(() => {
@@ -738,15 +751,16 @@ export default function AnnualPlanner() {
       .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
 
-  const handleDayClick = useCallback((ds: string, _hasAffs: boolean) => {
-    setPanelDate(ds);
+  const handleDayClick = useCallback((ds: string, hasAffs: boolean) => {
+    setModalDate(ds);
+    setModalMode(hasAffs ? "options" : "quick");
   }, []);
 
   const saveAff = useCallback(async (
     itemId: string, type: "mission"|"absence",
     periode: "journee"|"matin"|"aprem", existingId?: string
   ) => {
-    if (!panelDate || !selectedCon || !canEditSelected) return;
+    if (!modalDate || !selectedCon || !canEditSelected) return;
     const payload = type==="mission" ? { Mission:itemId, Absence:null } : { Absence:itemId, Mission:null };
     if (existingId) {
       const { error } = await supabase.from("Affectation").update(payload).eq("id",existingId);
@@ -757,7 +771,7 @@ export default function AnnualPlanner() {
       }));
     } else {
       const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:panelDate, Sultant:selectedCon, periode, copil:false, distanciel:false, ...payload })
+        .insert({ Date:modalDate, Sultant:selectedCon, periode, copil:false, distanciel:false, ...payload })
         .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (error) return;
@@ -775,24 +789,6 @@ export default function AnnualPlanner() {
     setAffectations(prev => prev.map(a => a.id===aff.id?{...a,copil:!aff.copil}:a));
   }, []);
 
-  const copyDay = useCallback(() => {
-    if (!panelDate) return;
-    const affs = affectations.filter(a => a.Date.startsWith(panelDate));
-    if (affs.length > 0) setClipboard(affs);
-  }, [panelDate, affectations]);
-
-  const pasteDay = useCallback(async () => {
-    if (!panelDate || !selectedCon || !clipboard || !canEditSelected) return;
-    for (const aff of clipboard) {
-      const payload = aff.mission ? { Mission: aff.mission.id ?? aff.Mission, Absence: null } : { Absence: aff.absence?.id ?? aff.Absence, Mission: null };
-      const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:panelDate, Sultant:selectedCon, periode:aff.periode, copil:aff.copil, distanciel:aff.distanciel, ...payload })
-        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
-        .single();
-      if (!error && data) setAffectations(prev => [...prev, data as unknown as Affectation]);
-    }
-  }, [panelDate, selectedCon, clipboard, canEditSelected, affectations]);
-
   const toggleDistanciel = useCallback(async (aff: Affectation) => {
     await supabase.from("Affectation").update({ distanciel:!aff.distanciel }).eq("id",aff.id);
     setAffectations(prev => prev.map(a => a.id===aff.id?{...a,distanciel:!aff.distanciel}:a));
@@ -802,7 +798,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? 180 : 0 }}>
+    <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -836,24 +832,34 @@ export default function AnnualPlanner() {
         }
       </div>
 
-      {/* Bandeau bas */}
-      {panelDate && (
-        <BottomPanel
-          date={panelDate}
-          sultantName={consultants.find(c=>c.id===selectedCon) ? `${consultants.find(c=>c.id===selectedCon)!.Nom} ${consultants.find(c=>c.id===selectedCon)!.Prénom}` : ""}
-          affectations={affectations}
-          missions={missions} absences={absences}
-          canEdit={canEditSelected}
-          clipboard={clipboard}
+      {/* Modale 1er clic : choisir mission */}
+      {modalDate && modalMode==="quick" && (
+        <QuickPick
+          date={modalDate} missions={missions} absences={absences} defaultPeriode="journee"
           onPick={(id, type, periode) => saveAff(id, type, periode)}
+          onClose={() => setModalDate(null)}
+        />
+      )}
+
+      {/* Modale 2e clic : options */}
+      {modalDate && modalMode==="options" && (
+        <OptionsModal
+          date={modalDate} affectations={affectations} missions={missions} absences={absences}
+          onClose={() => setModalDate(null)}
           onChangeAff={(id, type, periode, existingId) => saveAff(id, type, periode, existingId)}
           onDelete={deleteAff}
           onCopil={toggleCopil}
           onDistanciel={toggleDistanciel}
-          onAddSlot={(periode) => setAddPeriode(periode)}
-          onCopy={copyDay}
-          onPaste={pasteDay}
-          onClose={() => setPanelDate(null)}
+          onAddSlot={(periode) => { setAddPeriode(periode); setModalMode("quick"); }}
+        />
+      )}
+
+      {/* Modale ajout créneau supplémentaire */}
+      {modalDate && modalMode==="add" && (
+        <QuickPick
+          date={modalDate} missions={missions} absences={absences} defaultPeriode={addPeriode}
+          onPick={(id, type, periode) => saveAff(id, type, periode)}
+          onClose={() => setModalDate(null)}
         />
       )}
     </div>

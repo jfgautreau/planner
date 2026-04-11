@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAccess } from "@/hooks/useAccess";
 import { FixedNav } from "@/components/AnnualPlanner";
-import { BottomPanel } from "@/components/AnnualPlanner";
 
 type Sultant     = { id: string; Nom: string; Prénom: string };
 type Mission     = { id: string; Client: string; Mission: string; Code: string; Color: string; TextColor: string };
@@ -198,16 +197,13 @@ export default function PlanningView() {
   const [loading, setLoading]         = useState(true);
   const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
 
-  // Clipboard
-  const [clipboard, setClipboard]       = useState<Affectation[]|null>(null);
-
   // Drag
   const [dragMission, setDragMission] = useState<Mission|null>(null);
   const [dragAbsence, setDragAbsence] = useState<Absence|null>(null);
   const [dragOver, setDragOver]       = useState<{sultantId:string; date:string}|null>(null);
 
-  // Bandeau
-  const [panel, setPanel] = useState<{date:string; sultantId:string}|null>(null);
+  // Modale
+  const [modal, setModal] = useState<{date:string; sultantId:string; mode:"quick"|"options"|"add"; addPeriode?:"journee"|"matin"|"aprem"}|null>(null);
 
   useEffect(() => { localStorage.setItem(LS_YEAR, String(year)); }, [year]);
 
@@ -269,26 +265,6 @@ export default function PlanningView() {
   }, [affectations]);
 
   const getAffs = (sultantId: string, ds: string) => affMap.get(`${sultantId}::${ds}`) ?? [];
-
-  const copyDay = useCallback(() => {
-    if (!panel) return;
-    const affs = affectations.filter(a => a.Date.startsWith(panel.date) && a.Sultant === panel.sultantId);
-    if (affs.length > 0) setClipboard(affs);
-  }, [panel, affectations]);
-
-  const pasteDay = useCallback(async () => {
-    if (!panel || !clipboard) return;
-    for (const aff of clipboard) {
-      const cw = canWrite(panel.sultantId);
-      if (!cw) continue;
-      const payload = aff.mission ? { Mission: aff.mission.id ?? aff.Mission, Absence: null } : { Absence: aff.absence?.id ?? aff.Absence, Mission: null };
-      const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:panel.date, Sultant:panel.sultantId, periode:aff.periode, copil:aff.copil, distanciel:aff.distanciel, ...payload })
-        .select("id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)")
-        .single();
-      if (!error && data) setAffectations(prev => [...prev, data as unknown as Affectation]);
-    }
-  }, [panel, clipboard, canWrite, affectations]);
 
   // canWrite pour un consultant
   const canWrite = useCallback((sultantId: string) =>
@@ -358,7 +334,7 @@ export default function PlanningView() {
   );
 
   return (
-    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panel ? 180 : 0 }}>
+    <div style={{ paddingTop:58, minHeight:"100vh", background:"white" }}>
       <FixedNav activePath={pathname||"/planning"} role={access.role ?? undefined} />
 
       {/* ── Barre de contrôles ── */}
@@ -464,7 +440,7 @@ export default function PlanningView() {
                     <td key={day.ds}
                       onClick={() => {
                         if (day.blocked || !canEdit) return;
-                        setPanel({ date:day.ds, sultantId:sultant.id });
+                        setModal({ date:day.ds, sultantId:sultant.id, mode: hasAffs ? "options" : "quick" });
                       }}
                       onDragOver={e => { if (!day.blocked && canEdit) { e.preventDefault(); setDragOver({sultantId:sultant.id, date:day.ds}); } }}
                       onDragLeave={() => setDragOver(null)}
@@ -519,27 +495,27 @@ export default function PlanningView() {
         </table>
       </div>
 
-      {/* Bandeau bas */}
-      {panel && (
-        <BottomPanel
-          date={panel.date}
-          sultantName={consultants.find(c=>c.id===panel.sultantId) ? `${consultants.find(c=>c.id===panel.sultantId)!.Nom} ${consultants.find(c=>c.id===panel.sultantId)!.Prénom}` : ""}
-          affectations={affectations.filter(a => a.Sultant === panel.sultantId)}
-          missions={missions} absences={absences}
-          canEdit={canWrite(panel.sultantId)}
-          clipboard={clipboard}
-          onPick={(id, type, periode) => saveAff(panel.sultantId, panel.date, id, type, periode)}
-          onChangeAff={(id, type, periode, existingId) => saveAff(panel.sultantId, panel.date, id, type, periode, existingId)}
+      {/* ── Modales ── */}
+      {modal?.mode==="quick" && (
+        <QuickPick
+          date={modal.date}
+          sultantName={consultants.find(c=>c.id===modal.sultantId) ? `${consultants.find(c=>c.id===modal.sultantId)!.Nom} ${consultants.find(c=>c.id===modal.sultantId)!.Prénom}` : ""}
+          missions={missions} absences={absences} defaultPeriode={modal.addPeriode ?? "journee"}
+          onPick={(id, type, periode) => saveAff(modal.sultantId, modal.date, id, type, periode)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.mode==="options" && (
+        <OptionsModal
+          date={modal.date}
+          sultantName={consultants.find(c=>c.id===modal.sultantId) ? `${consultants.find(c=>c.id===modal.sultantId)!.Nom} ${consultants.find(c=>c.id===modal.sultantId)!.Prénom}` : ""}
+          sultantId={modal.sultantId}
+          affectations={affectations} missions={missions} absences={absences}
+          onClose={() => setModal(null)}
+          onChangeAff={(id, type, periode, existingId) => saveAff(modal.sultantId, modal.date, id, type, periode, existingId)}
           onDelete={deleteAff}
           onCopil={toggleCopil}
-          onDistanciel={async (aff) => {
-            await supabase.from("Affectation").update({ distanciel:!aff.distanciel }).eq("id",aff.id);
-            setAffectations(prev => prev.map(a => a.id===aff.id?{...a,distanciel:!aff.distanciel}:a));
-          }}
-          onAddSlot={() => {}}
-          onCopy={copyDay}
-          onPaste={pasteDay}
-          onClose={() => setPanel(null)}
+          onAddSlot={periode => setModal(m => m ? {...m, mode:"quick", addPeriode:periode} : null)}
         />
       )}
     </div>
