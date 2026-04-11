@@ -232,16 +232,14 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       {/* Corps 4 colonnes */}
       <div style={{ display:"flex", height: PANEL_HEIGHT - 18, alignItems:"stretch" }}>
 
-        {/* COL 1 : Période — ligne 1: Journée / ligne 2: Matin + A-midi */}
-        <div style={col}>
-          {/* Ligne 1 : Journée */}
+        {/* COL 1 : Période */}
+        <div style={{ ...col, minWidth:90 }}>
           <button onClick={() => {
             if (selectedAff) { changePeriode(selectedAff, "journee"); }
             else if (!journee) setPeriode("journee");
           }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="journee" : periode==="journee")}>
             Journée
           </button>
-          {/* Ligne 2 : Matin + A-midi côte à côte */}
           <div style={{ display:"flex", gap:"0.25rem" }}>
             <button onClick={() => {
               if (selectedAff) { changePeriode(selectedAff, "matin"); }
@@ -324,7 +322,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
         {canEdit && (
           <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
             <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
-              <button onClick={onCopy} style={btn("#f39c12", affs.length > 0 && !!date)}>📋 Copier</button>
+              <button onClick={onCopy} style={btn("#f39c12", false)}>📋 Copier</button>
               <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
             <button onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
@@ -713,7 +711,7 @@ export default function AnnualPlanner() {
   useEffect(() => {
     const calc = () => {
       const NAV = 46, CTRL = 46, THEAD = 22, PANEL = PANEL_HEIGHT;
-      const avail = window.innerHeight - NAV - CTRL - THEAD - PANEL - 4;
+      const avail = window.innerHeight - NAV - CTRL - THEAD - PANEL - 12;
       setRowHeight(Math.max(14, Math.floor(avail / 31)));
     };
     calc();
