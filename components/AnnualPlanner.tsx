@@ -123,8 +123,7 @@ export function FixedNav({ activePath, role, visibleMenus }: { activePath: strin
   );
 }
 
-// ── Modale de premier clic : choisir mission (1 clic = validé) ───────────────
-// ── Bandeau bas de modification ─────────────────────────────────────────────
+// ── Bandeau bas compact ────────────────────────────────────────────────────────
 type PanelProps = {
   date: string; sultantName: string;
   affectations: Affectation[];
@@ -142,121 +141,140 @@ type PanelProps = {
   onClose: () => void;
 };
 
-export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onAddSlot, onCopy, onPaste, onClose }: PanelProps) {
+export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose }: PanelProps) {
   const [periode, setPeriode] = useState<"journee"|"matin"|"aprem">("journee");
-  const [pickingFor, setPickingFor] = useState<{existingId?: string; periode: "journee"|"matin"|"aprem"} | null>(null);
+  const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
 
   const affs    = affectations.filter(a => a.Date.startsWith(date));
   const journee = affs.find(a => a.periode==="journee");
   const matin   = affs.find(a => a.periode==="matin");
   const aprem   = affs.find(a => a.periode==="aprem");
   const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
-  const hasAffs = affs.length > 0;
+  const selectedAff = affs.find(a => a.id === selectedAffId) ?? affs[0] ?? null;
 
-  const allOpts = [
-    ...missions.map(m => ({ id:m.id, label:`${m.Code} — ${m.Client}`, color:m.Color, textColor:m.TextColor||"#fff", type:"mission" as const })),
-    ...absences.map(a => ({ id:a.id, label:`${a.code} — ${a.nom}`, color:a.color, textColor:"#fff", type:"absence" as const })),
-  ];
+  // Touche Suppr → supprimer l'affectation sélectionnée
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Delete" && selectedAff && canEdit) {
+        onDelete(selectedAff.id);
+        setSelectedAffId(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedAff, canEdit, onDelete]);
 
-  const ob = (color: string, active = false): React.CSSProperties => ({
-    padding:"0.22rem 0.55rem", border:`1.5px solid ${color}`, borderRadius:4,
+  // Réinitialiser la sélection quand la date change
+  useEffect(() => { setSelectedAffId(null); setPeriode("journee"); }, [date]);
+
+  const tog = (color: string, active: boolean): React.CSSProperties => ({
+    padding:"0.2rem 0.5rem", border:`1.5px solid ${color}`, borderRadius:4,
     background: active ? color : "white", color: active ? "white" : color,
-    cursor:"pointer", fontWeight:"bold", fontSize:"0.72rem", whiteSpace:"nowrap",
+    cursor:"pointer", fontWeight:"bold", fontSize:"0.7rem",
   });
+
+  const PANEL_HEIGHT = 110;
 
   return (
     <div style={{
       position:"fixed", bottom:0, left:0, right:0, zIndex:600,
       background:"white", borderTop:"2px solid #1a2744",
-      boxShadow:"0 -4px 20px rgba(0,0,0,0.15)",
-      maxHeight:"50vh", overflowY:"auto",
+      boxShadow:"0 -4px 16px rgba(0,0,0,0.12)",
+      height: PANEL_HEIGHT,
+      display:"flex", flexDirection:"column",
     }}>
-      {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", gap:"0.6rem", padding:"0.5rem 1rem", background:"#1a2744", color:"white" }}>
-        <span style={{ fontWeight:"bold", fontSize:"0.88rem", textTransform:"capitalize" }}>{label}</span>
-        {sultantName && <span style={{ fontSize:"0.78rem", opacity:0.7 }}>— {sultantName}</span>}
-        <div style={{ marginLeft:"auto", display:"flex", gap:"0.4rem" }}>
-          {hasAffs && canEdit && (
-            <button onClick={onCopy} style={{ padding:"0.2rem 0.6rem", background:"#f39c12", border:"none", borderRadius:3, color:"white", cursor:"pointer", fontSize:"0.72rem", fontWeight:"bold" }}>
-              📋 Copier (Ctrl+C)
+      {/* Ligne 1 : header compact */}
+      <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.25rem 0.8rem", background:"#1a2744", color:"white", flexShrink:0 }}>
+        <span style={{ fontWeight:"bold", fontSize:"0.82rem", textTransform:"capitalize" }}>{label}</span>
+        {sultantName && <span style={{ fontSize:"0.72rem", opacity:0.65 }}>— {sultantName}</span>}
+        <div style={{ marginLeft:"auto", display:"flex", gap:"0.35rem", alignItems:"center" }}>
+          {affs.length > 0 && canEdit && (
+            <button onClick={onCopy} style={{ padding:"0.15rem 0.5rem", background:"#f39c12", border:"none", borderRadius:3, color:"white", cursor:"pointer", fontSize:"0.68rem", fontWeight:"bold" }}>
+              📋 Ctrl+C
             </button>
           )}
           {clipboard && canEdit && (
-            <button onClick={onPaste} style={{ padding:"0.2rem 0.6rem", background:"#27ae60", border:"none", borderRadius:3, color:"white", cursor:"pointer", fontSize:"0.72rem", fontWeight:"bold" }}>
-              📌 Coller (Ctrl+V)
+            <button onClick={onPaste} style={{ padding:"0.15rem 0.5rem", background:"#27ae60", border:"none", borderRadius:3, color:"white", cursor:"pointer", fontSize:"0.68rem", fontWeight:"bold" }}>
+              📌 Ctrl+V
             </button>
           )}
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", cursor:"pointer", fontSize:"1.1rem", padding:"0 0.3rem" }}>✕</button>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.6)", cursor:"pointer", fontSize:"1rem", lineHeight:1 }}>✕</button>
         </div>
       </div>
 
-      <div style={{ padding:"0.6rem 1rem" }}>
-        {/* Affectations existantes */}
-        {affs.length > 0 && (
-          <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem", marginBottom:"0.6rem" }}>
-            {affs.map(aff => {
-              const st = getAffStyle(aff);
-              return (
-                <div key={aff.id} style={{ display:"flex", alignItems:"center", gap:"0.3rem", background:"#f8f9fa", borderRadius:6, padding:"0.3rem 0.5rem", border:"1px solid #e0e0e0" }}>
-                  <span style={{ background:st.bg, color:st.text, padding:"0.1rem 0.45rem", borderRadius:3, fontWeight:"bold", fontSize:"0.75rem" }}>{st.code}</span>
-                  <span style={{ fontSize:"0.72rem", color:"#888" }}>{aff.periode==="journee"?"Journée":aff.periode==="matin"?"Matin":"Après-midi"}</span>
-                  {canEdit && <>
-                    <button onClick={() => setPickingFor({existingId:aff.id, periode:aff.periode})} style={ob("#3498db")}>✏️</button>
-                    <button onClick={() => onCopil(aff)} style={ob("#e67e22", aff.copil)}>★</button>
-                    <button onClick={() => onDistanciel(aff)} style={ob("#2980b9", aff.distanciel)}>⊟</button>
-                    <button onClick={() => onDelete(aff.id)} style={ob("#e74c3c")}>🗑</button>
-                  </>}
-                </div>
-              );
-            })}
-          </div>
+      {/* Ligne 2 : tout en une ligne */}
+      <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.3rem 0.8rem", flex:1, overflowX:"auto", flexWrap:"nowrap" }}>
+
+        {/* Affectations existantes (badges sélectionnables) */}
+        {affs.map(aff => {
+          const st = getAffStyle(aff);
+          const isSel = selectedAff?.id === aff.id;
+          return (
+            <button key={aff.id} onClick={() => setSelectedAffId(aff.id)}
+              style={{ background:st.bg, color:st.text, border: isSel ? "2px solid #111" : `2px solid ${st.bg}`,
+                borderRadius:5, padding:"0.2rem 0.5rem", cursor:"pointer", fontWeight:"bold",
+                fontSize:"0.75rem", flexShrink:0, outline: isSel ? "2px solid #f39c12" : "none", outlineOffset:1 }}>
+              {st.code} <span style={{ opacity:0.75, fontSize:"0.62rem" }}>{aff.periode==="journee"?"J":aff.periode==="matin"?"M":"A"}</span>
+            </button>
+          );
+        })}
+
+        {/* Séparateur si affectations présentes */}
+        {affs.length > 0 && canEdit && <span style={{ color:"#ddd", fontSize:"1rem", flexShrink:0 }}>│</span>}
+
+        {/* Actions sur l'affectation sélectionnée */}
+        {selectedAff && canEdit && (
+          <>
+            <button onClick={() => onCopil(selectedAff)} style={tog("#e67e22", selectedAff.copil)}>★ COPIL</button>
+            <button onClick={() => onDistanciel(selectedAff)} style={tog("#2980b9", selectedAff.distanciel)}>⊟ Dist.</button>
+            <button onClick={() => { onDelete(selectedAff.id); setSelectedAffId(null); }} style={tog("#e74c3c", false)} title="Supprimer (Suppr)">🗑 Suppr</button>
+            <span style={{ color:"#ddd", fontSize:"1rem", flexShrink:0 }}>│</span>
+          </>
         )}
 
-        {/* Picker mission/absence */}
-        {canEdit && (pickingFor !== null || !hasAffs) && (
-          <div>
-            {/* Sélecteur période (seulement si case vide ou ajout) */}
-            {(pickingFor === null || !pickingFor.existingId) && !journee && (
-              <div style={{ display:"flex", gap:"0.3rem", marginBottom:"0.5rem" }}>
-                {(["journee","matin","aprem"] as const).map(p => (
-                  <button key={p} onClick={() => setPeriode(p)} style={{
-                    padding:"0.25rem 0.6rem", border:`1.5px solid ${periode===p?"#1a2744":"#ccc"}`,
-                    borderRadius:4, background:periode===p?"#1a2744":"white",
-                    color:periode===p?"white":"#555", fontWeight:"bold", cursor:"pointer", fontSize:"0.72rem",
-                  }}>
-                    {p==="journee"?"Journée":p==="matin"?"Matin":"Après-midi"}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Liste missions + absences */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"0.3rem" }}>
-              {allOpts.map(o => (
-                <button key={o.id} onClick={() => {
-                  if (pickingFor?.existingId) {
-                    onChangeAff(o.id, o.type, pickingFor.periode, pickingFor.existingId);
-                  } else {
-                    onPick(o.id, o.type, periode);
-                  }
-                  setPickingFor(null);
-                }} style={{
-                  background:o.color, color:o.textColor, border:`1.5px solid ${o.color}`,
-                  borderRadius:4, padding:"0.22rem 0.55rem", cursor:"pointer",
-                  fontWeight:"bold", fontSize:"0.72rem",
-                }}>{o.label}</button>
-              ))}
-            </div>
-          </div>
+        {/* Sélecteur période (si case non journée complète) */}
+        {canEdit && !journee && (
+          <>
+            {(["journee","matin","aprem"] as const).map(p => (
+              <button key={p} onClick={() => setPeriode(p)} style={tog("#1a2744", periode===p)}>
+                {p==="journee"?"Journée":p==="matin"?"Matin":"A-midi"}
+              </button>
+            ))}
+            <span style={{ color:"#ddd", fontSize:"1rem", flexShrink:0 }}>│</span>
+          </>
         )}
 
-        {/* Ajouter créneau */}
-        {canEdit && hasAffs && !journee && (!matin || !aprem) && pickingFor === null && (
-          <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.4rem", paddingTop:"0.4rem", borderTop:"1px solid #eee" }}>
-            <span style={{ fontSize:"0.72rem", color:"#888", alignSelf:"center" }}>Ajouter :</span>
-            {!matin  && <button onClick={() => { onAddSlot("matin");   setPickingFor({periode:"matin"}); }} style={ob("#1a2744")}>+ Matin</button>}
-            {!aprem  && <button onClick={() => { onAddSlot("aprem");   setPickingFor({periode:"aprem"}); }} style={ob("#1a2744")}>+ Après-midi</button>}
-            {!matin && !aprem && <button onClick={() => { onAddSlot("journee"); setPickingFor({periode:"journee"}); }} style={ob("#1a2744")}>+ Journée</button>}
-          </div>
+        {/* Missions — codes courts */}
+        {canEdit && missions.map(m => (
+          <button key={m.id} onClick={() => {
+            if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+            else { onPick(m.id, "mission", periode); }
+          }} style={{
+            background:m.Color, color:m.TextColor||"#fff", border:`1.5px solid ${m.Color}`,
+            borderRadius:4, padding:"0.2rem 0.45rem", cursor:"pointer", fontWeight:"bold",
+            fontSize:"0.72rem", flexShrink:0,
+          }}>{m.Code}</button>
+        ))}
+
+        {/* Absences — codes courts */}
+        {canEdit && absences.map(a => (
+          <button key={a.id} onClick={() => {
+            if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+            else { onPick(a.id, "absence", periode); }
+          }} style={{
+            background:a.color, color:"#fff", border:`1.5px solid ${a.color}`,
+            borderRadius:4, padding:"0.2rem 0.45rem", cursor:"pointer", fontWeight:"bold",
+            fontSize:"0.72rem", flexShrink:0,
+          }}>{a.code}</button>
+        ))}
+
+        {/* Ajouter demi-journée */}
+        {canEdit && affs.length > 0 && !journee && (!matin || !aprem) && (
+          <>
+            <span style={{ color:"#ddd", fontSize:"1rem", flexShrink:0 }}>│</span>
+            {!matin  && <button onClick={() => setPeriode("matin")}  style={tog("#555", false)}>+ Matin</button>}
+            {!aprem  && <button onClick={() => setPeriode("aprem")}  style={tog("#555", false)}>+ A-midi</button>}
+          </>
         )}
       </div>
     </div>
@@ -440,11 +458,11 @@ function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, c
 type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
-  selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string;
+  selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string; panelOpen: boolean;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const affMap = useMemo(() => {
@@ -532,7 +550,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
         </thead>
         <tbody>
           {Array.from({ length:31 }, (_,i) => i+1).map(dayNum => (
-            <tr key={dayNum} style={{ height:26 }}>
+            <tr key={dayNum} style={{ height: panelOpen ? 20 : 26 }}>
               {quarters.map(q => (
                 <React.Fragment key={q.label}>
                   {q.m.map(mi => {
@@ -804,7 +822,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? 180 : 0 }}>
+    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? 115 : 0 }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -834,7 +852,7 @@ export default function AnnualPlanner() {
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} onFirstClick={handleDayClick} />
         }
       </div>
 
