@@ -489,10 +489,11 @@ type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
   selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string; panelOpen: boolean; selectedDate: string|null;
+  rowHeight: number;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, rowHeight, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const affMap = useMemo(() => {
@@ -536,24 +537,6 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
           ))}
         </colgroup>
         <thead>
-          {/* Trimestres */}
-          <tr>
-            {quarters.map((q, qi) => {
-              const qColors = [
-                { bg:"#1565c0", text:"white" },
-                { bg:"#2e7d32", text:"white" },
-                { bg:"#e65100", text:"white" },
-                { bg:"#4a148c", text:"white" },
-              ];
-              return (
-                <th key={q.label} colSpan={q.m.length*5} style={{
-                  background: qColors[qi].bg, color: qColors[qi].text,
-                  textAlign:"center", border:"1px solid #222",
-                  padding:"4px", fontSize:"0.78rem", fontWeight:"bold", letterSpacing:"0.1em",
-                }}>{q.label}</th>
-              );
-            })}
-          </tr>
           <tr>
             {quarters.map((q, qi) => {
               const mColors = [
@@ -580,7 +563,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
         </thead>
         <tbody>
           {Array.from({ length:31 }, (_,i) => i+1).map(dayNum => (
-            <tr key={dayNum} style={{ height: panelOpen ? 20 : 26 }}>
+            <tr key={dayNum} style={{ height: rowHeight }}>
               {quarters.map(q => (
                 <React.Fragment key={q.label}>
                   {q.m.map(mi => {
@@ -635,8 +618,8 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         </td>
 
                         {/* Zones A/B/C — 3 bandes verticales */}
-                        <td style={{ border:"1px solid #ddd", padding:0, overflow:"hidden", height:"26px" }}>
-                          <div style={{ display:"flex", height:"26px", width:"100%" }}>
+                        <td style={{ border:"1px solid #ddd", padding:0, overflow:"hidden", height:`${rowHeight}px` }}>
+                          <div style={{ display:"flex", height:`${rowHeight}px`, width:"100%" }}>
                             <div style={{ flex:1, background:zA?ZONE_COLORS.A:"white" }} title={zA?"Zone A":""} />
                             <div style={{ flex:1, background:zB?ZONE_COLORS.B:"white" }} title={zB?"Zone B":""} />
                             <div style={{ flex:1, background:zC?ZONE_COLORS.C:"white" }} title={zC?"Zone C":""} />
@@ -852,6 +835,13 @@ export default function AnnualPlanner() {
 
 
 
+  // Hauteur de ligne dynamique : tout doit tenir sans scroll
+  const rowHeight = useMemo(() => {
+    if (typeof window === "undefined") return 20;
+    const avail = window.innerHeight - 46 - 46 - 22 - (panelDate ? PANEL_HEIGHT : 0);
+    return Math.max(14, Math.floor(avail / 31));
+  }, [panelDate]);
+
   return (
     <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? PANEL_HEIGHT + 4 : 0 }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
@@ -883,7 +873,7 @@ export default function AnnualPlanner() {
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={rowHeight} onFirstClick={handleDayClick} />
         }
       </div>
 
