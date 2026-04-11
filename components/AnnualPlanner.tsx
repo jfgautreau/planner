@@ -212,7 +212,12 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     // Période déjà occupée par une autre aff → ne rien faire
     if (affs.some(a => a.id !== aff.id && (a.periode === newPeriode || a.periode === "journee"))) return;
     if (newPeriode === "journee" && affs.some(a => a.id !== aff.id)) return;
-    onChangeAff(aff.mission?.id ?? aff.Mission ?? "", "mission", newPeriode, aff.id);
+    // Gérer mission ET absence
+    if (aff.Mission || aff.mission?.id) {
+      onChangeAff(aff.mission?.id ?? aff.Mission ?? "", "mission", newPeriode, aff.id);
+    } else {
+      onChangeAff(aff.absence?.id ?? aff.Absence ?? "", "absence", newPeriode, aff.id);
+    }
   };
 
   return (
@@ -711,7 +716,7 @@ export default function AnnualPlanner() {
   useEffect(() => {
     const calc = () => {
       const NAV = 46, CTRL = 46, THEAD = 22, PANEL = PANEL_HEIGHT;
-      const avail = window.innerHeight - NAV - CTRL - THEAD - PANEL - 12;
+      const avail = window.innerHeight - NAV - CTRL - THEAD - PANEL - 8;
       setRowHeight(Math.max(14, Math.floor(avail / 31)));
     };
     calc();
@@ -807,11 +812,12 @@ export default function AnnualPlanner() {
     if (!panelDate || !selectedCon || !canEditSelected) return;
     const payload = type==="mission" ? { Mission:itemId, Absence:null } : { Absence:itemId, Mission:null };
     if (existingId) {
-      const { error } = await supabase.from("Affectation").update(payload).eq("id",existingId);
+      const updatePayload = { ...payload, periode };
+      const { error } = await supabase.from("Affectation").update(updatePayload).eq("id",existingId);
       if (error) return;
       setAffectations(prev => prev.map(a => {
         if (a.id!==existingId) return a;
-        return { ...a, ...payload, mission:type==="mission"?missions.find(m=>m.id===itemId)||null:null, absence:type==="absence"?absences.find(ab=>ab.id===itemId)||null:null };
+        return { ...a, ...updatePayload, mission:type==="mission"?missions.find(m=>m.id===itemId)||null:null, absence:type==="absence"?absences.find(ab=>ab.id===itemId)||null:null };
       }));
     } else {
       const { data, error } = await supabase.from("Affectation")
