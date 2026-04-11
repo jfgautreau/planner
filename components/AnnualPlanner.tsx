@@ -141,7 +141,7 @@ type PanelProps = {
   onClose: () => void;
 };
 
-export const PANEL_HEIGHT = 96;
+export const PANEL_HEIGHT = 80;
 
 export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose }: PanelProps) {
   // periode = créneau pour la prochaine affectation
@@ -223,14 +223,14 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       height: PANEL_HEIGHT,
     }}>
       {/* Titre */}
-      <div style={{ display:"flex", alignItems:"center", padding:"0.15rem 0.8rem", background:"#1a2744", color:"white", height:22 }}>
+      <div style={{ display:"flex", alignItems:"center", padding:"0.1rem 0.8rem", background:"#1a2744", color:"white", height:18 }}>
         <span style={{ fontWeight:"bold", fontSize:"0.78rem", textTransform:"capitalize" }}>{label}</span>
         {sultantName && <span style={{ fontSize:"0.7rem", opacity:0.65, marginLeft:"0.5rem" }}>— {sultantName}</span>}
         <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(255,255,255,0.6)", cursor:"pointer", fontSize:"1rem", lineHeight:1 }}>✕</button>
       </div>
 
       {/* Corps 4 colonnes */}
-      <div style={{ display:"flex", height: PANEL_HEIGHT - 22, alignItems:"stretch" }}>
+      <div style={{ display:"flex", height: PANEL_HEIGHT - 18, alignItems:"stretch" }}>
 
         {/* COL 1 : Période — ligne 1: Journée / ligne 2: Matin + A-midi */}
         <div style={col}>
@@ -324,7 +324,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
         {canEdit && (
           <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
             <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
-              <button onClick={onCopy} style={btn("#f39c12", affs.length > 0)}>📋 Copier</button>
+              <button onClick={onCopy} style={btn("#f39c12", affs.length > 0 && !!date)}>📋 Copier</button>
               <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
             <button onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
@@ -707,6 +707,19 @@ const subBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid
 export default function AnnualPlanner() {
   const pathname = usePathname();
   const isMobile = useIsMobile();
+
+  // Hauteur de ligne dynamique — remplit exactement l'espace disponible
+  const [rowHeight, setRowHeight] = useState(20);
+  useEffect(() => {
+    const calc = () => {
+      const NAV = 46, CTRL = 46, THEAD = 22, PANEL = PANEL_HEIGHT;
+      const avail = window.innerHeight - NAV - CTRL - THEAD - PANEL - 4;
+      setRowHeight(Math.max(14, Math.floor(avail / 31)));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
   const access = useAccess();
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
   const [selectedCon, setSelectedCon]   = useState<string>("");
@@ -861,7 +874,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: PANEL_HEIGHT + 4 }}>
+    <div style={{ paddingTop:58, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -888,10 +901,10 @@ export default function AnnualPlanner() {
         )}
       </div>
 
-      <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
+      <div style={{ padding: isMobile ? "0.2rem 0" : "0" }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={18} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={rowHeight} onFirstClick={handleDayClick} />
         }
       </div>
 
