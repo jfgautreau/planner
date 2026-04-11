@@ -865,7 +865,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={ paddingTop:46, paddingBottom:80, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }>
+    <div style={{ paddingTop:46, paddingBottom:80, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
