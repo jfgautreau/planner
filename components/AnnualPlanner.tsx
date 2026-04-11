@@ -152,23 +152,17 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const matin   = affs.find(a => a.periode==="matin");
   const aprem   = affs.find(a => a.periode==="aprem");
   const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
-
-  // selectedAff : l'affectation sélectionnée (par clic sur badge)
-  // Si une seule affectation existe et rien de sélectionné, on la pré-sélectionne
   const selectedAff = affs.find(a => a.id === selectedAffId) ?? (affs.length === 1 ? affs[0] : null);
 
-  // Réinitialiser quand la date change
   useEffect(() => { setSelectedAffId(null); setPeriode("journee"); }, [date]);
 
-  // Ajuster la période sélectionnée selon ce qui est dispo
   useEffect(() => {
-    if (journee) { setPeriode("journee"); return; }
+    if (journee) return;
     if (!matin && !aprem) setPeriode("journee");
     else if (!matin) setPeriode("matin");
     else if (!aprem) setPeriode("aprem");
   }, [date, journee, matin, aprem]);
 
-  // Touche Suppr — supprimer l'affectation sélectionnée
   const selectedAffRef = React.useRef<Affectation|null>(null);
   selectedAffRef.current = selectedAff;
   useEffect(() => {
@@ -182,13 +176,12 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     return () => window.removeEventListener("keydown", handler);
   }, [canEdit, onDelete]);
 
-  // Style toggle : blanc → coloré si actif, grisé si disabled
-  const tog = (color: string, active: boolean, disabled = false): React.CSSProperties => ({
-    padding:"0.18rem 0.5rem", border:`1.5px solid ${disabled ? "#ddd" : active ? color : color}`,
-    borderRadius:4, background: disabled ? "#f5f5f5" : active ? color : "white",
-    color: disabled ? "#bbb" : active ? "white" : color,
-    cursor: disabled ? "not-allowed" : "pointer", fontWeight:"bold", fontSize:"0.68rem",
-    flexShrink:0, transition:"all 0.1s",
+  // Principe unique : coloré = actif/sélectionné, blanc = inactif
+  const btn = (color: string, active: boolean): React.CSSProperties => ({
+    padding:"0.2rem 0.5rem", border:`1.5px solid ${color}`,
+    borderRadius:4, background: active ? color : "white",
+    color: active ? "white" : color,
+    cursor:"pointer", fontWeight:"bold", fontSize:"0.68rem", flexShrink:0,
   });
 
   const col: React.CSSProperties = {
@@ -213,129 +206,102 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       {/* Corps */}
       <div style={{ display:"flex", height: PANEL_HEIGHT - 22, alignItems:"stretch" }}>
 
-        {/* COL 1 : Période */}
+        {/* COL 1 : Période — coloré si sélectionné */}
         <div style={col}>
-          <button
-            onClick={() => { if (!journee) setPeriode("journee"); }}
-            style={tog("#1a2744", periode==="journee", !!journee)}>
+          <button onClick={() => { if (!journee) setPeriode("journee"); }}
+            style={btn("#1a2744", !journee && periode==="journee")}>
             Journée
           </button>
           <div style={{ display:"flex", gap:"0.25rem" }}>
-            <button
-              onClick={() => { if (!matin) setPeriode("matin"); }}
-              style={tog("#1a2744", periode==="matin", !!matin)}>
+            <button onClick={() => { if (!matin) setPeriode("matin"); }}
+              style={btn("#1a2744", !matin && periode==="matin")}>
               Matin
             </button>
-            <button
-              onClick={() => { if (!aprem) setPeriode("aprem"); }}
-              style={tog("#1a2744", periode==="aprem", !!aprem)}>
+            <button onClick={() => { if (!aprem) setPeriode("aprem"); }}
+              style={btn("#1a2744", !aprem && periode==="aprem")}>
               A-midi
             </button>
           </div>
         </div>
 
-        {/* COL 2 : Missions + Absences */}
+        {/* COL 2 : Missions + Absences — coloré si affecté ce jour */}
         <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem", justifyContent:"center", padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flex:1, overflow:"hidden" }}>
-          <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto", paddingBottom:2 }}>
+          <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto" }}>
             {missions.map(m => {
               const affM = affs.find(a => (a.mission?.id ?? a.Mission) === m.id);
-              const isAff = !!affM;
-              const isSel = isAff && selectedAff?.id === affM?.id;
+              const active = !!affM;
+              const isSel  = active && selectedAff?.id === affM?.id;
               return (
                 <button key={m.id}
                   onClick={() => {
                     if (!canEdit) return;
-                    // Si la mission est déjà affectée ce jour → sélectionner pour modifier/supprimer
-                    if (isAff) { setSelectedAffId(affM!.id); return; }
-                    // Si une affectation est sélectionnée → la remplacer par cette mission
+                    if (active) { setSelectedAffId(affM!.id); return; }
                     if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); return; }
-                    // Vérifier que la période est libre
-                    const periodeOccupee = affs.some(a => a.periode === periode || a.periode === "journee");
-                    if (periodeOccupee && !journee) return; // demi-journée déjà prise
-                    if (journee) return; // journée complète déjà prise
-                    onPick(m.id, "mission", periode);
+                    if (!journee && !affs.some(a => a.periode === periode)) onPick(m.id, "mission", periode);
                   }}
-                  style={(() => {
-                    const periodeLibre = !affs.some(a => a.periode === periode || a.periode === "journee");
-                    const disponible = isAff || (periodeLibre && !journee) || !!selectedAff;
-                    return {
-                      background: isAff ? m.Color : "white",
-                      color: isAff ? (m.TextColor||"#fff") : m.Color,
-                      border: isSel ? `2px solid #f39c12` : `1.5px solid ${m.Color}`,
-                      borderRadius:4, padding:"0.18rem 0.4rem",
-                      cursor: disponible ? "pointer" : "not-allowed",
-                      fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
-                      outline: isSel ? "2px solid #f39c12" : "none",
-                      opacity: disponible ? 1 : 0.35,
-                    };
-                  })()}
-                >{m.Code}</button>
+                  style={{
+                    ...btn(m.Color, active),
+                    color: active ? (m.TextColor||"#fff") : m.Color,
+                    background: active ? m.Color : "white",
+                    fontWeight: isSel ? "900" : "bold",
+                    textDecoration: isSel ? "underline" : "none",
+                  }}>
+                  {m.Code}
+                </button>
               );
             })}
           </div>
           <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto" }}>
             {absences.map(a => {
               const affA = affs.find(af => (af.absence?.id ?? af.Absence) === a.id);
-              const isAff = !!affA;
-              const isSel = isAff && selectedAff?.id === affA?.id;
+              const active = !!affA;
+              const isSel  = active && selectedAff?.id === affA?.id;
               return (
                 <button key={a.id}
                   onClick={() => {
                     if (!canEdit) return;
-                    // Si déjà affectée → sélectionner
-                    if (isAff) { setSelectedAffId(affA!.id); return; }
-                    // Si une affectation sélectionnée → remplacer
+                    if (active) { setSelectedAffId(affA!.id); return; }
                     if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); return; }
-                    // Vérifier que la période est libre
-                    const periodeOccupee = affs.some(af => af.periode === periode || af.periode === "journee");
-                    if (periodeOccupee && !journee) return;
-                    if (journee) return;
-                    onPick(a.id, "absence", periode);
+                    if (!journee && !affs.some(af => af.periode === periode)) onPick(a.id, "absence", periode);
                   }}
-                  style={(() => {
-                    const periodeLibre = !affs.some(af => af.periode === periode || af.periode === "journee");
-                    const disponible = isAff || (periodeLibre && !journee) || !!selectedAff;
-                    return {
-                      background: isAff ? a.color : "white",
-                      color: isAff ? "#fff" : a.color,
-                      border: isSel ? `2px solid #f39c12` : `1.5px solid ${a.color}`,
-                      borderRadius:4, padding:"0.18rem 0.4rem",
-                      cursor: disponible ? "pointer" : "not-allowed",
-                      fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
-                      opacity: disponible ? 1 : 0.35,
-                    };
-                  })()}
-                >{a.code}</button>
+                  style={{
+                    ...btn(a.color, active),
+                    color: active ? "#fff" : a.color,
+                    background: active ? a.color : "white",
+                    fontWeight: isSel ? "900" : "bold",
+                    textDecoration: isSel ? "underline" : "none",
+                  }}>
+                  {a.code}
+                </button>
               );
             })}
           </div>
         </div>
 
-        {/* COL 3 : COPIL + Distanciel */}
+        {/* COL 3 : COPIL + Distanciel — coloré si actif sur l'aff sélectionnée */}
         {canEdit && (
           <div style={col}>
             <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
-              style={tog("#e67e22", !!selectedAff?.copil, !selectedAff)}>
+              style={btn("#e67e22", !!selectedAff?.copil)}>
               ★ COPIL
             </button>
             <button onClick={() => { if (selectedAff) onDistanciel(selectedAff); }}
-              style={tog("#2980b9", !!selectedAff?.distanciel, !selectedAff)}>
+              style={btn("#2980b9", !!selectedAff?.distanciel)}>
               ⊟ Dist.
             </button>
           </div>
         )}
 
-        {/* COL 4 : Copier / Coller / Supprimer */}
+        {/* COL 4 : Copier / Coller + Supprimer */}
         {canEdit && (
           <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
             <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
-              <button onClick={onCopy} disabled={affs.length === 0} style={tog("#f39c12", false, affs.length === 0)}>📋 Copier</button>
-              <button onClick={onPaste} disabled={!clipboard} style={tog("#27ae60", false, !clipboard)}>📌 Coller</button>
+              <button onClick={onCopy} style={btn("#f39c12", false)}>📋 Copier</button>
+              <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
             <button
               onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
-              disabled={!selectedAff}
-              style={{ ...tog("#e74c3c", false, !selectedAff), padding:"0.35rem 0.5rem" }}
+              style={{ ...btn("#e74c3c", false), padding:"0.35rem 0.5rem" }}
               title="Supprimer (Del)">
               🗑 Suppr
             </button>
@@ -345,7 +311,6 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     </div>
   );
 }
-
 const optBtn = (color: string): React.CSSProperties => ({
   padding:"0.25rem 0.6rem", border:`2px solid ${color}`, borderRadius:4,
   background:"white", color, cursor:"pointer", fontWeight:"bold", fontSize:"0.72rem",
