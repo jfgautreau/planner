@@ -261,7 +261,17 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
           </div>
         </div>
 
-        {/* COL 2 : Missions + Absences
+        {/* COL 2 : COPIL + Distanciel */}
+        {canEdit && (
+          <div style={col}>
+            <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
+              style={btn("#e67e22", !!selectedAff?.copil)}>★ COPIL</button>
+            <button onClick={() => { if (selectedAff) onDistanciel(selectedAff); }}
+              style={btn("#2980b9", !!selectedAff?.distanciel)}>⊟ Dist.</button>
+          </div>
+        )}
+
+        {/* COL 3 : Missions + Absences
             - Coloré = affecté ce jour
             - Clic sur affecté → sélectionner cette aff
             - Clic sur non affecté + aff sélectionnée → changer mission
@@ -313,17 +323,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
           </div>
         </div>
 
-        {/* COL 3 : COPIL + Distanciel — coloré si actif sur l'aff sélectionnée */}
-        {canEdit && (
-          <div style={col}>
-            <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
-              style={btn("#e67e22", !!selectedAff?.copil)}>★ COPIL</button>
-            <button onClick={() => { if (selectedAff) onDistanciel(selectedAff); }}
-              style={btn("#2980b9", !!selectedAff?.distanciel)}>⊟ Dist.</button>
-          </div>
-        )}
-
-        {/* COL 4 : Copier/Coller + Supprimer */}
+        {/* COL 3 : Copier/Coller + Supprimer */}
         {canEdit && (
           <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
             <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
@@ -711,17 +711,20 @@ export default function AnnualPlanner() {
   const pathname = usePathname();
   const isMobile = useIsMobile();
 
-  // Hauteur de ligne dynamique — remplit exactement l'espace disponible
+  // Hauteur de ligne : mesurée sur la zone réelle du calendrier
+  const calZoneRef = React.useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState(20);
   useEffect(() => {
     const calc = () => {
-      const NAV = 46, CTRL = 46, THEAD = 22, PANEL = PANEL_HEIGHT;
-      const avail = window.innerHeight - NAV - CTRL - THEAD - PANEL - 8;
-      setRowHeight(Math.max(14, Math.floor(avail / 31)));
+      if (!calZoneRef.current) return;
+      const zoneH = calZoneRef.current.getBoundingClientRect().height;
+      const THEAD = 22;
+      setRowHeight(Math.max(14, Math.floor((zoneH - THEAD - 4) / 31)));
     };
-    calc();
+    // Attendre que le DOM soit rendu
+    const t = setTimeout(calc, 50);
     window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
+    return () => { clearTimeout(t); window.removeEventListener("resize", calc); };
   }, []);
   const access = useAccess();
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
@@ -878,7 +881,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:58, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ paddingTop:46, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -905,7 +908,7 @@ export default function AnnualPlanner() {
         )}
       </div>
 
-      <div style={{ padding: isMobile ? "0.2rem 0" : "0" }}>
+      <div ref={calZoneRef} style={{ flex:1, overflow:"hidden", minHeight:0 }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
           : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={rowHeight} onFirstClick={handleDayClick} />
