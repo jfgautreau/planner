@@ -7,7 +7,7 @@ import { FixedNav } from "@/components/AnnualPlanner";
 
 type Sultant     = { id:string; Nom:string; Prénom:string };
 type Mission     = { id:string; Client:string; Mission:string; Code:string; Color:string; km:number };
-type Affectation = { id:string; Date:string; Sultant:string; periode:string; mission:{ id:string; Client:string; Code:string; Color:string }|null; absence:{ id:string; code:string }|null };
+type Affectation = { id:string; Date:string; Sultant:string; periode:string; distanciel:boolean; mission:{ id:string; Client:string; Code:string; Color:string }|null; absence:{ id:string; code:string }|null };
 type Objectif    = { sultant_id:string; annee:number; mois:number; jours:number };
 
 const months = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
@@ -54,7 +54,7 @@ export default function DashboardProd() {
       const [{ data:s },{ data:m },{ data:a },{ data:o }] = await Promise.all([
         supabase.from("Sultant").select("*"),
         supabase.from("Mission").select("id,Client,Mission,Code,Color,Adresse,km"),
-        supabase.from("Affectation").select("id,Date,Sultant,periode,mission:Mission(id,Client,Code,Color),absence:Absence(id,code)").gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`),
+        supabase.from("Affectation").select("id,Date,Sultant,periode,distanciel,mission:Mission(id,Client,Code,Color),absence:Absence(id,code)").gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`),
         supabase.from("Objectif").select("sultant_id,annee,mois,jours").eq("annee",year),
       ]);
       setConsultants(s||[]); setMissions(m||[]);
@@ -100,10 +100,10 @@ export default function DashboardProd() {
     filteredMissions.filter(a=>new Date(`${a.Date}T12:00:00`).getMonth()===mi).reduce((s,a)=>s+(a.periode==="journee"?1:0.5),0)
   ),[filteredMissions]);
 
-  // Calcul km par mois : jours par mission × km aller-retour
+  // Calcul km par mois : jours par mission × km aller-retour (hors distanciel)
   const kmByMonth = useMemo(()=>months.map((_,mi)=>{
     return filteredMissions
-      .filter(a=>new Date(`${a.Date}T12:00:00`).getMonth()===mi)
+      .filter(a=>new Date(`${a.Date}T12:00:00`).getMonth()===mi && !a.distanciel)
       .reduce((sum,a)=>{
         const missionKm = missions.find(m=>m.id===a.mission?.id)?.km ?? 0;
         const jours = a.periode==="journee" ? 1 : 0.5;
