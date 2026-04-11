@@ -331,7 +331,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
               <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
             <button onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
-              style={{ ...btn("#e74c3c", false), padding:"0.35rem 0.5rem" }}
+              style={btn("#e74c3c", false)}
               title="Supprimer (Del)">🗑 Suppr</button>
           </div>
         )}
