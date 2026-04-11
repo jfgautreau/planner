@@ -141,7 +141,7 @@ type PanelProps = {
   onClose: () => void;
 };
 
-export const PANEL_HEIGHT = 80;
+export const PANEL_HEIGHT = 100;
 
 export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose }: PanelProps) {
   // periode = créneau pour la prochaine affectation
@@ -292,8 +292,8 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   background: active ? m.Color : "white",
                   color: active ? (m.TextColor||"#fff") : m.Color,
                   border: `${isSel ? 2 : 1.5}px solid ${m.Color}`,
-                  borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
-                  fontWeight: isSel ? "900" : "bold", fontSize:"0.7rem", flexShrink:0,
+                  borderRadius:4, padding:"0.28rem 0.55rem", cursor:"pointer",
+                  fontWeight: isSel ? "900" : "bold", fontSize:"0.76rem", flexShrink:0,
                   textDecoration: isSel ? "underline" : "none",
                 }}>{m.Code}</button>
               );
@@ -314,8 +314,8 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   background: active ? a.color : "white",
                   color: active ? "#fff" : a.color,
                   border: `${isSel ? 2 : 1.5}px solid ${a.color}`,
-                  borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
-                  fontWeight: isSel ? "900" : "bold", fontSize:"0.7rem", flexShrink:0,
+                  borderRadius:4, padding:"0.28rem 0.55rem", cursor:"pointer",
+                  fontWeight: isSel ? "900" : "bold", fontSize:"0.76rem", flexShrink:0,
                   textDecoration: isSel ? "underline" : "none",
                 }}>{a.code}</button>
               );
@@ -865,7 +865,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:46, paddingBottom:80, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }}>
+    <div style={{ paddingTop:46, paddingBottom:100, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.28rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
