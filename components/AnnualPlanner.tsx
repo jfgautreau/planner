@@ -50,7 +50,7 @@ export function getAffStyle(aff: Affectation) {
 }
 
 // ── Navbar fixe ──────────────────────────────────────────────────────────────
-export function FixedNav({ activePath, role, visibleMenus }: { activePath: string; role?: string; visibleMenus?: Set<string> }) {
+export function FixedNav({ activePath, role, visibleMenus, selectedCon, year }: { activePath: string; role?: string; visibleMenus?: Set<string>; selectedCon?: string; year?: number }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const s = (path: string): React.CSSProperties => ({
@@ -90,8 +90,19 @@ export function FixedNav({ activePath, role, visibleMenus }: { activePath: strin
             <button key={l.path} onClick={() => router.push(l.path)} style={s(l.path)}>{l.label}</button>
           ))}
         </div>
+        {/* Bouton iCal desktop */}
+        {selectedCon && (
+          <a
+            href={`/api/outlook-ical?sultant=${selectedCon}&year=${year ?? new Date().getFullYear()}`}
+            download
+            className="nav-desktop"
+            style={{ marginLeft:"auto", padding:"0.3rem 0.8rem", background:"#27ae60", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold", textDecoration:"none", display:"inline-flex", alignItems:"center", gap:"0.3rem" }}
+          >
+            📅 Export ICS
+          </a>
+        )}
         {/* Déconnexion desktop */}
-        <button onClick={logout} className="nav-desktop" style={{ marginLeft:"auto", padding:"0.3rem 0.8rem", background:"#82B2C0", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
+        <button onClick={logout} className="nav-desktop" style={{ marginLeft: selectedCon ? "0.5rem" : "auto", padding:"0.3rem 0.8rem", background:"#82B2C0", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
           🚪 Déconnexion
         </button>
         {/* Hamburger mobile */}
@@ -868,7 +879,7 @@ export default function AnnualPlanner() {
 
   return (
     <div style={{ paddingTop:46, paddingBottom:100, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }}>
-      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
+      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} selectedCon={selectedCon} year={year} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.28rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
