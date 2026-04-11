@@ -276,6 +276,11 @@ export default function PlanningView() {
     if (affs.length > 0) setClipboard(affs);
   }, [panel, affectations]);
 
+  // canWrite pour un consultant
+  const canWrite = useCallback((sultantId: string) =>
+    access.isAdmin || access.writableSultantIds === null || (access.writableSultantIds?.includes(sultantId) ?? false),
+  [access]);
+
   const pasteDay = useCallback(async () => {
     if (!panel || !clipboard) return;
     for (const aff of clipboard) {
@@ -289,11 +294,6 @@ export default function PlanningView() {
       if (!error && data) setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
   }, [panel, clipboard, canWrite, affectations]);
-
-  // canWrite pour un consultant
-  const canWrite = useCallback((sultantId: string) =>
-    access.isAdmin || access.writableSultantIds === null || (access.writableSultantIds?.includes(sultantId) ?? false),
-  [access]);
 
   // Sauvegarder une affectation
   const saveAff = useCallback(async (
