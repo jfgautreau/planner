@@ -196,10 +196,10 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
 
   // Style unifié : coloré=actif, blanc=inactif
   const btn = (color: string, active: boolean): React.CSSProperties => ({
-    padding:"0.2rem 0.5rem", border:`1.5px solid ${color}`,
+    padding:"0.28rem 0.65rem", border:`1.5px solid ${color}`,
     borderRadius:4, background: active ? color : "white",
     color: active ? "white" : color,
-    cursor:"pointer", fontWeight:"bold", fontSize:"0.68rem", flexShrink:0,
+    cursor:"pointer", fontWeight:"bold", fontSize:"0.76rem", flexShrink:0,
   });
 
   const col: React.CSSProperties = {
@@ -867,7 +867,7 @@ export default function AnnualPlanner() {
   return (
     <div style={{ paddingTop:46, paddingBottom:80, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
-      <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.28rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
           <span style={{ fontWeight:"bold", minWidth:42, textAlign:"center", fontSize:"0.9rem" }}>{year}</span>
