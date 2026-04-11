@@ -152,33 +152,48 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const matin   = affs.find(a => a.periode==="matin");
   const aprem   = affs.find(a => a.periode==="aprem");
   const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
-  const selectedAff = affs.find(a => a.id === selectedAffId) ?? null;
 
+  // selectedAff : l'affectation sélectionnée (par clic sur badge)
+  // Si une seule affectation existe et rien de sélectionné, on la pré-sélectionne
+  const selectedAff = affs.find(a => a.id === selectedAffId) ?? (affs.length === 1 ? affs[0] : null);
+
+  // Réinitialiser quand la date change
+  useEffect(() => { setSelectedAffId(null); setPeriode("journee"); }, [date]);
+
+  // Ajuster la période sélectionnée selon ce qui est dispo
+  useEffect(() => {
+    if (journee) { setPeriode("journee"); return; }
+    if (!matin && !aprem) setPeriode("journee");
+    else if (!matin) setPeriode("matin");
+    else if (!aprem) setPeriode("aprem");
+  }, [date, journee, matin, aprem]);
+
+  // Touche Suppr — supprimer l'affectation sélectionnée
+  const selectedAffRef = React.useRef<Affectation|null>(null);
+  selectedAffRef.current = selectedAff;
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Delete" && selectedAff && canEdit) {
-        onDelete(selectedAff.id);
+      if (e.key === "Delete" && selectedAffRef.current && canEdit) {
+        onDelete(selectedAffRef.current.id);
         setSelectedAffId(null);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedAff, canEdit, onDelete]);
+  }, [canEdit, onDelete]);
 
-  useEffect(() => { setSelectedAffId(null); setPeriode("journee"); }, [date]);
-
-  // Bouton toggle : blanc par défaut, coloré si actif
+  // Style toggle : blanc → coloré si actif, grisé si disabled
   const tog = (color: string, active: boolean, disabled = false): React.CSSProperties => ({
-    padding:"0.18rem 0.45rem", border:`1.5px solid ${active ? color : "#ccc"}`,
-    borderRadius:4, background: active ? color : "white",
-    color: active ? "white" : "#555",
-    cursor: disabled ? "default" : "pointer", fontWeight:"bold", fontSize:"0.68rem",
-    opacity: disabled ? 0.4 : 1, flexShrink:0,
+    padding:"0.18rem 0.5rem", border:`1.5px solid ${disabled ? "#ddd" : active ? color : color}`,
+    borderRadius:4, background: disabled ? "#f5f5f5" : active ? color : "white",
+    color: disabled ? "#bbb" : active ? "white" : color,
+    cursor: disabled ? "not-allowed" : "pointer", fontWeight:"bold", fontSize:"0.68rem",
+    flexShrink:0, transition:"all 0.1s",
   });
 
   const col: React.CSSProperties = {
-    display:"flex", flexDirection:"column", gap:"0.25rem",
-    padding:"0.3rem 0.6rem", borderRight:"1px solid #e0e0e0", flexShrink:0,
+    display:"flex", flexDirection:"column", gap:"0.28rem", justifyContent:"center",
+    padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flexShrink:0,
   };
 
   return (
@@ -188,73 +203,100 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       boxShadow:"0 -4px 16px rgba(0,0,0,0.12)",
       height: PANEL_HEIGHT,
     }}>
-      {/* Titre date */}
-      <div style={{ display:"flex", alignItems:"center", padding:"0.15rem 0.8rem", background:"#1a2744", color:"white", height:22 }}>
+      {/* Titre */}
+      <div style={{ display:"flex", alignItems:"center", padding:"0.15rem 0.8rem", background:"#1a2744", color:"white", height:22, flexShrink:0 }}>
         <span style={{ fontWeight:"bold", fontSize:"0.78rem", textTransform:"capitalize" }}>{label}</span>
-        {sultantName && <span style={{ fontSize:"0.7rem", opacity:0.65, marginLeft:"0.4rem" }}>— {sultantName}</span>}
+        {sultantName && <span style={{ fontSize:"0.7rem", opacity:0.65, marginLeft:"0.5rem" }}>— {sultantName}</span>}
         <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(255,255,255,0.6)", cursor:"pointer", fontSize:"1rem", lineHeight:1 }}>✕</button>
       </div>
 
-      {/* Corps : 4 colonnes */}
-      <div style={{ display:"flex", height: PANEL_HEIGHT - 22, alignItems:"stretch", overflowX:"auto" }}>
+      {/* Corps */}
+      <div style={{ display:"flex", height: PANEL_HEIGHT - 22, alignItems:"stretch" }}>
 
         {/* COL 1 : Période */}
         <div style={col}>
+          <button
+            onClick={() => { if (!journee) setPeriode("journee"); }}
+            style={tog("#1a2744", periode==="journee", !!journee)}>
+            Journée
+          </button>
           <div style={{ display:"flex", gap:"0.25rem" }}>
-            <button onClick={() => setPeriode("journee")} style={tog("#1a2744", periode==="journee" && !journee, !!journee)}>Journée</button>
-          </div>
-          <div style={{ display:"flex", gap:"0.25rem" }}>
-            <button onClick={() => setPeriode("matin")}  style={tog("#1a2744", periode==="matin" && !matin, !!matin)}>Matin</button>
-            <button onClick={() => setPeriode("aprem")}  style={tog("#1a2744", periode==="aprem" && !aprem, !!aprem)}>A-midi</button>
+            <button
+              onClick={() => { if (!matin) setPeriode("matin"); }}
+              style={tog("#1a2744", periode==="matin", !!matin)}>
+              Matin
+            </button>
+            <button
+              onClick={() => { if (!aprem) setPeriode("aprem"); }}
+              style={tog("#1a2744", periode==="aprem", !!aprem)}>
+              A-midi
+            </button>
           </div>
         </div>
 
-        {/* COL 2 : Missions + Absences sur 2 lignes */}
-        <div style={{ ...col, flex:1, flexDirection:"column", borderRight:"1px solid #e0e0e0" }}>
-          <div style={{ display:"flex", gap:"0.25rem", flexWrap:"nowrap", overflowX:"auto" }}>
+        {/* COL 2 : Missions + Absences */}
+        <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem", justifyContent:"center", padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flex:1, overflow:"hidden" }}>
+          <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto", paddingBottom:2 }}>
             {missions.map(m => {
-              const isAff = affs.some(a => a.mission?.id === m.id || a.Mission === m.id);
+              const affM = affs.find(a => (a.mission?.id ?? a.Mission) === m.id);
+              const isAff = !!affM;
+              const isSel = isAff && selectedAff?.id === affM?.id;
               return (
-                <button key={m.id} onClick={() => {
-                  if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                  else { onPick(m.id, "mission", periode); }
-                }} style={{
-                  background: isAff ? m.Color : "white",
-                  color: isAff ? (m.TextColor||"#fff") : m.Color,
-                  border:`1.5px solid ${m.Color}`,
-                  borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
-                  fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
-                }}>{m.Code}</button>
+                <button key={m.id}
+                  onClick={() => {
+                    if (!canEdit) return;
+                    if (selectedAff && isAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+                    else if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+                    else { onPick(m.id, "mission", periode); }
+                  }}
+                  style={{
+                    background: isAff ? m.Color : "white", color: isAff ? (m.TextColor||"#fff") : m.Color,
+                    border: isSel ? `2px solid #f39c12` : `1.5px solid ${m.Color}`,
+                    borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
+                    fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
+                    outline: isSel ? "2px solid #f39c12" : "none",
+                  }}
+                  onClick={() => {
+                    if (!canEdit) return;
+                    if (isAff) { setSelectedAffId(affM!.id); }
+                    else { onPick(m.id, "mission", periode); }
+                  }}
+                >{m.Code}</button>
               );
             })}
           </div>
-          <div style={{ display:"flex", gap:"0.25rem", flexWrap:"nowrap", overflowX:"auto" }}>
+          <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto" }}>
             {absences.map(a => {
-              const isAff = affs.some(af => af.absence?.id === a.id || af.Absence === a.id);
+              const affA = affs.find(af => (af.absence?.id ?? af.Absence) === a.id);
+              const isAff = !!affA;
+              const isSel = isAff && selectedAff?.id === affA?.id;
               return (
-                <button key={a.id} onClick={() => {
-                  if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                  else { onPick(a.id, "absence", periode); }
-                }} style={{
-                  background: isAff ? a.color : "white",
-                  color: isAff ? "#fff" : a.color,
-                  border:`1.5px solid ${a.color}`,
-                  borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
-                  fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
-                }}>{a.code}</button>
+                <button key={a.id}
+                  onClick={() => {
+                    if (!canEdit) return;
+                    if (isAff) { setSelectedAffId(affA!.id); }
+                    else { onPick(a.id, "absence", periode); }
+                  }}
+                  style={{
+                    background: isAff ? a.color : "white", color: isAff ? "#fff" : a.color,
+                    border: isSel ? `2px solid #f39c12` : `1.5px solid ${a.color}`,
+                    borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
+                    fontWeight:"bold", fontSize:"0.7rem", flexShrink:0,
+                  }}
+                >{a.code}</button>
               );
             })}
           </div>
         </div>
 
-        {/* COL 3 : COPIL + Présentiel */}
+        {/* COL 3 : COPIL + Distanciel */}
         {canEdit && (
           <div style={col}>
-            <button onClick={() => selectedAff && onCopil(selectedAff)}
+            <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
               style={tog("#e67e22", !!selectedAff?.copil, !selectedAff)}>
               ★ COPIL
             </button>
-            <button onClick={() => selectedAff && onDistanciel(selectedAff)}
+            <button onClick={() => { if (selectedAff) onDistanciel(selectedAff); }}
               style={tog("#2980b9", !!selectedAff?.distanciel, !selectedAff)}>
               ⊟ Dist.
             </button>
@@ -263,12 +305,17 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
 
         {/* COL 4 : Copier / Coller / Supprimer */}
         {canEdit && (
-          <div style={{ ...col, borderRight:"none" }}>
-            <button onClick={onCopy} style={tog("#f39c12", false, affs.length === 0)}>📋 Copier</button>
-            <button onClick={onPaste} style={tog("#27ae60", false, !clipboard)}>📌 Coller</button>
-            <button onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
-              style={tog("#e74c3c", false, !selectedAff)}>
-              🗑 Suppr <span style={{ fontSize:"0.6rem", opacity:0.7 }}>(Del)</span>
+          <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
+              <button onClick={onCopy} disabled={affs.length === 0} style={tog("#f39c12", false, affs.length === 0)}>📋 Copier</button>
+              <button onClick={onPaste} disabled={!clipboard} style={tog("#27ae60", false, !clipboard)}>📌 Coller</button>
+            </div>
+            <button
+              onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
+              disabled={!selectedAff}
+              style={{ ...tog("#e74c3c", false, !selectedAff), padding:"0.35rem 0.5rem" }}
+              title="Supprimer (Del)">
+              🗑 Suppr
             </button>
           </div>
         )}
