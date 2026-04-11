@@ -517,11 +517,10 @@ type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
   selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string; panelOpen: boolean; selectedDate: string|null;
-  rowHeight: number;
   onFirstClick: (ds: string, hasAffs: boolean) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, rowHeight, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick }: CalViewProps) {
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const affMap = useMemo(() => {
@@ -547,8 +546,8 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
   const getConge = (dateStr: string) => congeMap.get(dateStr);
 
   return (
-    <div style={{ overflowX:"auto", width:"100%" }}>
-      <table style={{ borderCollapse:"collapse", fontSize:"0.67rem", width:"100%", tableLayout:"fixed" }}>
+    <div style={{ width:"100%", height:"100%", overflowX:"auto", overflowY:"hidden" }}>
+      <table style={{ borderCollapse:"collapse", fontSize:"0.67rem", width:"100%", height:"100%", tableLayout:"fixed" }}>
         <colgroup>
           {quarters.map(q => (
             <React.Fragment key={q.label}>
@@ -591,7 +590,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
         </thead>
         <tbody>
           {Array.from({ length:31 }, (_,i) => i+1).map(dayNum => (
-            <tr key={dayNum} style={{ height: rowHeight }}>
+            <tr key={dayNum}>
               {quarters.map(q => (
                 <React.Fragment key={q.label}>
                   {q.m.map(mi => {
@@ -646,8 +645,8 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         </td>
 
                         {/* Zones A/B/C — 3 bandes verticales */}
-                        <td style={{ border:"1px solid #ddd", padding:0, overflow:"hidden", height:`${rowHeight}px` }}>
-                          <div style={{ display:"flex", height:`${rowHeight}px`, width:"100%" }}>
+                        <td style={{ border:"1px solid #ddd", padding:0, overflow:"hidden" }}>
+                          <div style={{ display:"flex", height:"100%", width:"100%" }}>
                             <div style={{ flex:1, background:zA?ZONE_COLORS.A:"white" }} title={zA?"Zone A":""} />
                             <div style={{ flex:1, background:zB?ZONE_COLORS.B:"white" }} title={zB?"Zone B":""} />
                             <div style={{ flex:1, background:zC?ZONE_COLORS.C:"white" }} title={zC?"Zone C":""} />
@@ -711,21 +710,6 @@ export default function AnnualPlanner() {
   const pathname = usePathname();
   const isMobile = useIsMobile();
 
-  // Hauteur de ligne : mesurée sur la zone réelle du calendrier
-  const calZoneRef = React.useRef<HTMLDivElement>(null);
-  const [rowHeight, setRowHeight] = useState(20);
-  useEffect(() => {
-    const calc = () => {
-      if (!calZoneRef.current) return;
-      const zoneH = calZoneRef.current.getBoundingClientRect().height;
-      const THEAD = 22;
-      setRowHeight(Math.max(14, Math.floor((zoneH - THEAD - 4) / 31)));
-    };
-    // Attendre que le DOM soit rendu
-    const t = setTimeout(calc, 50);
-    window.addEventListener("resize", calc);
-    return () => { clearTimeout(t); window.removeEventListener("resize", calc); };
-  }, []);
   const access = useAccess();
   const [consultants, setConsultants]   = useState<Sultant[]>([]);
   const [selectedCon, setSelectedCon]   = useState<string>("");
@@ -881,7 +865,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:46, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={ paddingTop:46, paddingBottom:80, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -908,10 +892,10 @@ export default function AnnualPlanner() {
         )}
       </div>
 
-      <div ref={calZoneRef} style={{ flex:1, overflow:"hidden", minHeight:0 }}>
+      <div style={{ flex:1, overflow:"hidden", minHeight:0 }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={rowHeight} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} onFirstClick={handleDayClick} />
         }
       </div>
 
