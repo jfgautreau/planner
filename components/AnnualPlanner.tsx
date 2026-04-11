@@ -144,7 +144,9 @@ type PanelProps = {
 export const PANEL_HEIGHT = 96;
 
 export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose }: PanelProps) {
+  // periode = créneau pour la prochaine affectation
   const [periode, setPeriode] = useState<"journee"|"matin"|"aprem">("journee");
+  // selectedAffId = affectation cliquée (pour COPIL, Dist, Suppr, changer période)
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
 
   const affs    = affectations.filter(a => a.Date.startsWith(date));
@@ -152,17 +154,20 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const matin   = affs.find(a => a.periode==="matin");
   const aprem   = affs.find(a => a.periode==="aprem");
   const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
+
+  // selectedAff : priorité à ce qui est cliqué, sinon unique aff du jour
   const selectedAff = affs.find(a => a.id === selectedAffId) ?? (affs.length === 1 ? affs[0] : null);
 
-  useEffect(() => { setSelectedAffId(null); setPeriode("journee"); }, [date]);
-
+  // Reset quand on change de date
   useEffect(() => {
-    if (journee) return;
-    if (!matin && !aprem) setPeriode("journee");
-    else if (!matin) setPeriode("matin");
-    else if (!aprem) setPeriode("aprem");
-  }, [date, journee, matin, aprem]);
+    setSelectedAffId(null);
+    // Auto-sélectionner la période libre
+    if (!journee && !matin && !aprem) setPeriode("journee");
+    else if (!journee && !matin)      setPeriode("matin");
+    else if (!journee && !aprem)      setPeriode("aprem");
+  }, [date]);
 
+  // Touche Suppr
   const selectedAffRef = React.useRef<Affectation|null>(null);
   selectedAffRef.current = selectedAff;
   useEffect(() => {
@@ -176,7 +181,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     return () => window.removeEventListener("keydown", handler);
   }, [canEdit, onDelete]);
 
-  // Principe unique : coloré = actif/sélectionné, blanc = inactif
+  // Style unifié : coloré=actif, blanc=inactif
   const btn = (color: string, active: boolean): React.CSSProperties => ({
     padding:"0.2rem 0.5rem", border:`1.5px solid ${color}`,
     borderRadius:4, background: active ? color : "white",
@@ -189,6 +194,14 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flexShrink:0,
   };
 
+  // Changer la période d'une affectation existante
+  const changePeriode = (aff: Affectation, newPeriode: "journee"|"matin"|"aprem") => {
+    // Période déjà occupée par une autre aff → ne rien faire
+    if (affs.some(a => a.id !== aff.id && (a.periode === newPeriode || a.periode === "journee"))) return;
+    if (newPeriode === "journee" && affs.some(a => a.id !== aff.id)) return;
+    onChangeAff(aff.mission?.id ?? aff.Mission ?? "", "mission", newPeriode, aff.id);
+  };
+
   return (
     <div style={{
       position:"fixed", bottom:0, left:0, right:0, zIndex:600,
@@ -197,57 +210,77 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       height: PANEL_HEIGHT,
     }}>
       {/* Titre */}
-      <div style={{ display:"flex", alignItems:"center", padding:"0.15rem 0.8rem", background:"#1a2744", color:"white", height:22, flexShrink:0 }}>
+      <div style={{ display:"flex", alignItems:"center", padding:"0.15rem 0.8rem", background:"#1a2744", color:"white", height:22 }}>
         <span style={{ fontWeight:"bold", fontSize:"0.78rem", textTransform:"capitalize" }}>{label}</span>
         {sultantName && <span style={{ fontSize:"0.7rem", opacity:0.65, marginLeft:"0.5rem" }}>— {sultantName}</span>}
         <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(255,255,255,0.6)", cursor:"pointer", fontSize:"1rem", lineHeight:1 }}>✕</button>
       </div>
 
-      {/* Corps */}
+      {/* Corps 4 colonnes */}
       <div style={{ display:"flex", height: PANEL_HEIGHT - 22, alignItems:"stretch" }}>
 
-        {/* COL 1 : Période — coloré si sélectionné */}
+        {/* COL 1 : Période
+            - Si aucune aff : coloré = période choisie pour la prochaine affectation
+            - Si aff sélectionnée : coloré = période de cette aff (et clic change sa période)
+            - Coloré aussi si l'aff de ce créneau est sélectionnée */}
         <div style={col}>
-          <button onClick={() => { if (!journee) setPeriode("journee"); }}
-            style={btn("#1a2744", !journee && periode==="journee")}>
-            Journée
-          </button>
-          <div style={{ display:"flex", gap:"0.25rem" }}>
-            <button onClick={() => { if (!matin) setPeriode("matin"); }}
-              style={btn("#1a2744", !matin && periode==="matin")}>
-              Matin
-            </button>
-            <button onClick={() => { if (!aprem) setPeriode("aprem"); }}
-              style={btn("#1a2744", !aprem && periode==="aprem")}>
-              A-midi
-            </button>
-          </div>
+          {(["journee","matin","aprem"] as const).map((p, idx) => {
+            const affDeP = affs.find(a => a.periode === p);
+            // Active si : aff sélectionnée a cette période OU (pas d'aff sélectionnée et c'est la période choisie)
+            const active = selectedAff ? selectedAff.periode === p : periode === p;
+            // Coloré en vert si occupé par une aff
+            const occupied = !!affDeP;
+            return idx === 0 ? (
+              <button key={p} onClick={() => {
+                if (selectedAff && occupied && affDeP!.id !== selectedAff.id) return; // journée prise par autre
+                if (selectedAff) { changePeriode(selectedAff, p); }
+                else if (!occupied) setPeriode(p);
+              }} style={btn("#1a2744", active || (occupied && !selectedAff))}>
+                Journée
+              </button>
+            ) : idx === 1 ? (
+              <button key={p} onClick={() => {
+                if (selectedAff) { changePeriode(selectedAff, p); }
+                else if (!occupied && !journee) setPeriode(p);
+              }} style={btn("#1a2744", active || (occupied && !selectedAff))}>
+                Matin
+              </button>
+            ) : (
+              <button key={p} onClick={() => {
+                if (selectedAff) { changePeriode(selectedAff, p); }
+                else if (!occupied && !journee) setPeriode(p);
+              }} style={btn("#1a2744", active || (occupied && !selectedAff))}>
+                A-midi
+              </button>
+            );
+          })}
         </div>
 
-        {/* COL 2 : Missions + Absences — coloré si affecté ce jour */}
+        {/* COL 2 : Missions + Absences
+            - Coloré = affecté ce jour
+            - Clic sur affecté → sélectionner cette aff
+            - Clic sur non affecté + aff sélectionnée → changer mission
+            - Clic sur non affecté + rien sélectionné → affecter sur la période choisie */}
         <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem", justifyContent:"center", padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flex:1, overflow:"hidden" }}>
           <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto" }}>
             {missions.map(m => {
               const affM = affs.find(a => (a.mission?.id ?? a.Mission) === m.id);
               const active = !!affM;
-              const isSel  = active && selectedAff?.id === affM?.id;
+              const isSel  = !!affM && selectedAff?.id === affM.id;
               return (
-                <button key={m.id}
-                  onClick={() => {
-                    if (!canEdit) return;
-                    if (active) { setSelectedAffId(affM!.id); return; }
-                    if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); return; }
-                    if (!journee && !affs.some(a => a.periode === periode)) onPick(m.id, "mission", periode);
-                  }}
-                  style={{
-                    ...btn(m.Color, active),
-                    color: active ? (m.TextColor||"#fff") : m.Color,
-                    background: active ? m.Color : "white",
-                    fontWeight: isSel ? "900" : "bold",
-                    textDecoration: isSel ? "underline" : "none",
-                  }}>
-                  {m.Code}
-                </button>
+                <button key={m.id} onClick={() => {
+                  if (!canEdit) return;
+                  if (active) { setSelectedAffId(affM!.id); }
+                  else if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+                  else if (!journee && !affs.some(a => a.periode === periode)) { onPick(m.id, "mission", periode); }
+                }} style={{
+                  background: active ? m.Color : "white",
+                  color: active ? (m.TextColor||"#fff") : m.Color,
+                  border: `${isSel ? 2 : 1.5}px solid ${m.Color}`,
+                  borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
+                  fontWeight: isSel ? "900" : "bold", fontSize:"0.7rem", flexShrink:0,
+                  textDecoration: isSel ? "underline" : "none",
+                }}>{m.Code}</button>
               );
             })}
           </div>
@@ -255,24 +288,21 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
             {absences.map(a => {
               const affA = affs.find(af => (af.absence?.id ?? af.Absence) === a.id);
               const active = !!affA;
-              const isSel  = active && selectedAff?.id === affA?.id;
+              const isSel  = !!affA && selectedAff?.id === affA.id;
               return (
-                <button key={a.id}
-                  onClick={() => {
-                    if (!canEdit) return;
-                    if (active) { setSelectedAffId(affA!.id); return; }
-                    if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); return; }
-                    if (!journee && !affs.some(af => af.periode === periode)) onPick(a.id, "absence", periode);
-                  }}
-                  style={{
-                    ...btn(a.color, active),
-                    color: active ? "#fff" : a.color,
-                    background: active ? a.color : "white",
-                    fontWeight: isSel ? "900" : "bold",
-                    textDecoration: isSel ? "underline" : "none",
-                  }}>
-                  {a.code}
-                </button>
+                <button key={a.id} onClick={() => {
+                  if (!canEdit) return;
+                  if (active) { setSelectedAffId(affA!.id); }
+                  else if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
+                  else if (!journee && !affs.some(af => af.periode === periode)) { onPick(a.id, "absence", periode); }
+                }} style={{
+                  background: active ? a.color : "white",
+                  color: active ? "#fff" : a.color,
+                  border: `${isSel ? 2 : 1.5}px solid ${a.color}`,
+                  borderRadius:4, padding:"0.18rem 0.4rem", cursor:"pointer",
+                  fontWeight: isSel ? "900" : "bold", fontSize:"0.7rem", flexShrink:0,
+                  textDecoration: isSel ? "underline" : "none",
+                }}>{a.code}</button>
               );
             })}
           </div>
@@ -282,29 +312,22 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
         {canEdit && (
           <div style={col}>
             <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
-              style={btn("#e67e22", !!selectedAff?.copil)}>
-              ★ COPIL
-            </button>
+              style={btn("#e67e22", !!selectedAff?.copil)}>★ COPIL</button>
             <button onClick={() => { if (selectedAff) onDistanciel(selectedAff); }}
-              style={btn("#2980b9", !!selectedAff?.distanciel)}>
-              ⊟ Dist.
-            </button>
+              style={btn("#2980b9", !!selectedAff?.distanciel)}>⊟ Dist.</button>
           </div>
         )}
 
-        {/* COL 4 : Copier / Coller + Supprimer */}
+        {/* COL 4 : Copier/Coller + Supprimer */}
         {canEdit && (
           <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
             <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
-              <button onClick={onCopy} style={btn("#f39c12", false)}>📋 Copier</button>
+              <button onClick={onCopy} style={btn("#f39c12", affs.length > 0)}>📋 Copier</button>
               <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
-            <button
-              onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
+            <button onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
               style={{ ...btn("#e74c3c", false), padding:"0.35rem 0.5rem" }}
-              title="Supprimer (Del)">
-              🗑 Suppr
-            </button>
+              title="Supprimer (Del)">🗑 Suppr</button>
           </div>
         )}
       </div>
@@ -835,15 +858,8 @@ export default function AnnualPlanner() {
 
 
 
-  // Hauteur de ligne dynamique : tout doit tenir sans scroll
-  const rowHeight = useMemo(() => {
-    if (typeof window === "undefined") return 20;
-    const avail = window.innerHeight - 46 - 46 - 22 - (panelDate ? PANEL_HEIGHT : 0);
-    return Math.max(14, Math.floor(avail / 31));
-  }, [panelDate]);
-
   return (
-    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? PANEL_HEIGHT + 4 : 0 }}>
+    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? PANEL_HEIGHT + 8 : 0 }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -873,7 +889,7 @@ export default function AnnualPlanner() {
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={rowHeight} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={panelDate ? 18 : 22} onFirstClick={handleDayClick} />
         }
       </div>
 
