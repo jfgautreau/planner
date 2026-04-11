@@ -753,7 +753,7 @@ export default function AnnualPlanner() {
       if (error) return;
       setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
-  }, [modalDate, selectedCon, missions, absences]);
+  }, [panelDate, selectedCon, missions, absences]);
 
   const deleteAff = useCallback(async (id: string) => {
     await supabase.from("Affectation").delete().eq("id",id);
