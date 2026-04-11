@@ -169,13 +169,16 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   }, [date]);
 
   // Auto-sélectionner la dernière aff créée pour pouvoir changer sa période
+  const prevAffsLenRef = React.useRef(0);
   useEffect(() => {
-    if (autoSelectNext && affs.length > 0) {
-      const last = affs[affs.length - 1];
+    const currentAffs = affectations.filter(a => a.Date.startsWith(date));
+    if (autoSelectNext && currentAffs.length > prevAffsLenRef.current) {
+      const last = currentAffs[currentAffs.length - 1];
       setSelectedAffId(last.id);
       setAutoSelectNext(false);
     }
-  }, [affs, autoSelectNext]);
+    prevAffsLenRef.current = currentAffs.length;
+  }, [affectations, autoSelectNext, date]);
 
   // Touche Suppr
   const selectedAffRef = React.useRef<Affectation|null>(null);
@@ -858,7 +861,7 @@ export default function AnnualPlanner() {
 
 
   return (
-    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: panelDate ? PANEL_HEIGHT + 8 : 0 }}>
+    <div style={{ paddingTop:58, minHeight:"100vh", background:"white", paddingBottom: PANEL_HEIGHT + 4 }}>
       <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.5rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
@@ -888,15 +891,14 @@ export default function AnnualPlanner() {
       <div style={{ padding: isMobile ? "0.4rem 0.2rem" : "0.8rem 1rem" }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={panelDate ? 18 : 22} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} rowHeight={18} onFirstClick={handleDayClick} />
         }
       </div>
 
-      {/* Bandeau bas */}
-      {panelDate && (
-        <BottomPanel
-          date={panelDate}
-          sultantName={consultants.find(c=>c.id===selectedCon) ? `${consultants.find(c=>c.id===selectedCon)!.Nom} ${consultants.find(c=>c.id===selectedCon)!.Prénom}` : ""}
+      {/* Bandeau bas — toujours visible */}
+      <BottomPanel
+          date={panelDate ?? ""}
+          sultantName={panelDate && consultants.find(c=>c.id===selectedCon) ? `${consultants.find(c=>c.id===selectedCon)!.Nom} ${consultants.find(c=>c.id===selectedCon)!.Prénom}` : ""}
           affectations={affectations}
           missions={missions} absences={absences}
           canEdit={canEditSelected}
@@ -911,7 +913,6 @@ export default function AnnualPlanner() {
           onPaste={pasteDay}
           onClose={() => setPanelDate(null)}
         />
-      )}
     </div>
   );
 }
