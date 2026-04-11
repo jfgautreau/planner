@@ -621,6 +621,8 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                     const blocked = dow===0 || dow===6 || !!ferie;
                     const isToday    = dateStr === todayStr;
                     const isSelected = dateStr === selectedDate;
+                    const isMonday   = dow === 1;
+                    const isSunday   = dow === 0;
                     const journee = affs.find(a => a.periode==="journee");
                     const matin   = affs.find(a => a.periode==="matin");
                     const aprem   = affs.find(a => a.periode==="aprem");
@@ -630,22 +632,22 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                     return (
                       <React.Fragment key={mi}>
                         {/* Numéro du jour */}
-                        <td style={{ textAlign:"center", background:isToday?"#111":"#eceff1", border:isSelected?"2px solid #f39c12":"1px solid #ddd", color:isToday?"white":"#546e7a", fontSize:"0.58rem", padding:0, fontWeight:"bold" }}>
+                        <td style={{ textAlign:"center", background:isToday?"#111":"#eceff1", border:isSelected?"2px solid #f39c12":"1px solid #ddd", borderTop: isMonday?"2px solid #9e9e9e":"1px solid #ddd", borderBottom: isSunday?"2px solid #9e9e9e":undefined, color:isToday?"white":"#546e7a", fontSize:"0.58rem", padding:0, fontWeight:"bold" }}>
                           {dayNum}
                         </td>
 
                         {/* Numéro de semaine */}
-                        <td style={{ textAlign:"center", background:"#e8ecf0", border:"1px solid #ddd", color:"#555", fontSize:"0.56rem", padding:0, fontWeight:showWeek?"bold":"normal" }}>
+                        <td style={{ textAlign:"center", background:"#e8ecf0", border:"1px solid #ddd", borderTop: isMonday?"2px solid #9e9e9e":undefined, borderBottom: isSunday?"2px solid #9e9e9e":undefined, color:"#555", fontSize:"0.56rem", padding:0, fontWeight:showWeek?"bold":"normal" }}>
                           {showWeek && weekNum ? `S${weekNum}` : ""}
                         </td>
 
                         {/* Libellé jour */}
-                        <td style={{ background:isToday?"#111":blocked?"#c8c8c8":"#f0f4f8", border:isSelected?"2px solid #f39c12":"1px solid #ddd", textAlign:"center", color:isToday?"white":blocked?"#999":"#445", fontSize:"0.6rem", padding:0 }}>
+                        <td style={{ background:isToday?"#111":blocked?"#c8c8c8":"#f0f4f8", border:"1px solid #ddd", borderTop: isMonday?"2px solid #9e9e9e":undefined, borderBottom: isSunday?"2px solid #9e9e9e":undefined, textAlign:"center", color:isToday?"white":blocked?"#999":"#445", fontSize:"0.6rem", padding:0 }}>
                           {label}
                         </td>
 
                         {/* Zones A/B/C — 3 bandes verticales */}
-                        <td style={{ border:"1px solid #ddd", padding:0, overflow:"hidden" }}>
+                        <td style={{ border:"1px solid #ddd", borderTop: isMonday?"2px solid #9e9e9e":undefined, borderBottom: isSunday?"2px solid #9e9e9e":undefined, padding:0, overflow:"hidden" }}>
                           <div style={{ display:"flex", height:"100%", width:"100%" }}>
                             <div style={{ flex:1, background:zA?ZONE_COLORS.A:"white" }} title={zA?"Zone A":""} />
                             <div style={{ flex:1, background:zB?ZONE_COLORS.B:"white" }} title={zB?"Zone B":""} />
