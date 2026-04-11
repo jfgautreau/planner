@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { FixedNav } from "@/components/AnnualPlanner";
 
 type Sultant     = { id:string; Nom:string; Prénom:string };
-type Mission     = { id:string; Client:string; Mission:string; Code:string; Color:string };
+type Mission     = { id:string; Client:string; Mission:string; Code:string; Color:string; km:number };
 type Affectation = { id:string; Date:string; Sultant:string; periode:string; mission:{ id:string; Client:string; Code:string; Color:string }|null; absence:{ id:string; code:string }|null };
 type Objectif    = { sultant_id:string; annee:number; mois:number; jours:number };
 
@@ -53,7 +53,7 @@ export default function DashboardProd() {
       setLoading(true);
       const [{ data:s },{ data:m },{ data:a },{ data:o }] = await Promise.all([
         supabase.from("Sultant").select("*"),
-        supabase.from("Mission").select("*"),
+        supabase.from("Mission").select("id,Client,Mission,Code,Color,Adresse,km"),
         supabase.from("Affectation").select("id,Date,Sultant,periode,mission:Mission(id,Client,Code,Color),absence:Absence(id,code)").gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`),
         supabase.from("Objectif").select("sultant_id,annee,mois,jours").eq("annee",year),
       ]);
@@ -100,6 +100,18 @@ export default function DashboardProd() {
     filteredMissions.filter(a=>new Date(`${a.Date}T12:00:00`).getMonth()===mi).reduce((s,a)=>s+(a.periode==="journee"?1:0.5),0)
   ),[filteredMissions]);
 
+  // Calcul km par mois : jours par mission × km aller-retour
+  const kmByMonth = useMemo(()=>months.map((_,mi)=>{
+    return filteredMissions
+      .filter(a=>new Date(`${a.Date}T12:00:00`).getMonth()===mi)
+      .reduce((sum,a)=>{
+        const missionKm = missions.find(m=>m.id===a.mission?.id)?.km ?? 0;
+        const jours = a.periode==="journee" ? 1 : 0.5;
+        return sum + missionKm * jours;
+      }, 0);
+  }),[filteredMissions, missions]);
+
+  const grandKm = kmByMonth.reduce((a,b)=>a+b,0);
   const grandReal=realByMonth.reduce((a,b)=>a+b,0);
   const grandObj=objByMonth.reduce((a,b)=>a+b,0);
 
@@ -157,6 +169,7 @@ export default function DashboardProd() {
           <KPI value={grandObj>0?fj(grandObj,String(grandObj)):"—"} label="jours prévus" color="#27ae60" />
           {grandObj>0&&<KPI value={Math.round(grandReal/grandObj*100)+"%"} label="taux réalisation" color={grandReal>=grandObj?"#27ae60":"#e67e22"} />}
           <KPI value={rows.length} label={groupBy==="mission"?"missions":groupBy==="client"?"clients":"consultants"} color="#7f8c8d" />
+          {grandKm>0&&<KPI value={`${Math.round(grandKm).toLocaleString("fr-FR")} km`} label="km parcourus" color="#16a085" />}
         </div>
 
         {/* Tableau */}
@@ -203,6 +216,13 @@ export default function DashboardProd() {
                     <td style={{ padding:"0.5rem 0.8rem" }}>📊 Écart</td>
                     {realByMonth.map((v,i)=>{ const e=v-(objByMonth[i]??0); const h=(objByMonth[i]??0)>0; return <td key={i} style={{ padding:"0.4rem 0.2rem", textAlign:"center", fontSize:"0.75rem", color:h?(e>=0?"#7dcea0":"#f1948a"):"rgba(255,255,255,0.3)" }}>{h?(e>=0?`+${fj(e)}`:fj(e)):"·"}</td>; })}
                     <td style={{ padding:"0.4rem 0.5rem", textAlign:"center", borderLeft:"2px solid rgba(255,255,255,0.2)", color:(grandReal-grandObj)>=0?"#7dcea0":"#f1948a" }}>{(grandReal-grandObj)>=0?`+${fj(grandReal-grandObj)}`:fj(grandReal-grandObj)}</td>
+                  </tr>
+                )}
+              {grandKm>0&&(
+                  <tr style={{ backgroundColor:"#16a085", color:"white", fontWeight:"bold" }}>
+                    <td style={{ padding:"0.5rem 0.8rem" }}>🚗 Km</td>
+                    {kmByMonth.map((v,i)=><td key={i} style={{ padding:"0.4rem 0.2rem", textAlign:"center", fontSize:"0.78rem" }}>{v>0?Math.round(v).toLocaleString("fr-FR"):"·"}</td>)}
+                    <td style={{ padding:"0.4rem 0.5rem", textAlign:"center", borderLeft:"2px solid rgba(255,255,255,0.2)" }}>{Math.round(grandKm).toLocaleString("fr-FR")}</td>
                   </tr>
                 )}
               </tfoot>

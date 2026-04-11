@@ -818,6 +818,9 @@ export default function AnnualPlanner() {
             <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
               <span style={{ display:"inline-block", width:13, height:13, background:"#eee", border:"1px solid #ccc", position:"relative", overflow:"hidden", verticalAlign:"middle" }}><CopilCorner /></span> COPIL
             </span>
+            <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
+              <span style={{ display:"inline-block", width:13, height:13, background:"#eee", border:"1px solid #ccc", position:"relative", overflow:"hidden", verticalAlign:"middle" }}><DistancielCorner /></span> Distanciel
+            </span>
           </div>
         )}
       </div>

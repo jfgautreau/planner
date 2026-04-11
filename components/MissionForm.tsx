@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Mission = { id: string; Client: string; Mission: string; Code: string; Color: string; TextColor: string };
+type Mission = { id: string; Client: string; Mission: string; Code: string; Color: string; TextColor: string; Adresse: string; km: number };
 
 const PRESET_COLORS = [
   "#fca5a5", // red
@@ -26,6 +26,8 @@ export default function MissionForm() {
   const [code, setCode]         = useState("");
   const [color, setColor]       = useState(PRESET_COLORS[0]);
   const [textColor, setTextColor] = useState<"#ffffff"|"#000000">("#ffffff");
+  const [adresse, setAdresse]   = useState("");
+  const [km, setKm]             = useState<number>(0);
   const [saving, setSaving]     = useState(false);
   const [msg, setMsg]           = useState("");
   const [editId, setEditId]     = useState<string|null>(null);
@@ -36,7 +38,7 @@ export default function MissionForm() {
   const save = async () => {
     if (!client.trim()||!mission.trim()||!code.trim()) { setMsg("⚠️ Tous les champs sont requis."); return; }
     setSaving(true); setMsg("");
-    const payload = { Client:client.trim(), Mission:mission.trim(), Code:code.trim().toUpperCase(), Color:color, TextColor:textColor };
+    const payload = { Client:client.trim(), Mission:mission.trim(), Code:code.trim().toUpperCase(), Color:color, TextColor:textColor, Adresse:adresse.trim(), km:km||0 };
     if (editId) {
       const { error } = await supabase.from("Mission").update(payload).eq("id",editId);
       if (error) { setMsg(`❌ ${error.message}`); } else { setMsg("✅ Modifiée."); reset(); load(); }
@@ -46,8 +48,8 @@ export default function MissionForm() {
     }
     setSaving(false);
   };
-  const reset = () => { setEditId(null); setClient(""); setMission(""); setCode(""); setColor(PRESET_COLORS[0]); setTextColor("#ffffff"); };
-  const startEdit = (m: Mission) => { setEditId(m.id); setClient(m.Client); setMission(m.Mission); setCode(m.Code); setColor(m.Color); setTextColor((m.TextColor||"#ffffff") as "#ffffff"|"#000000"); setMsg(""); };
+  const reset = () => { setEditId(null); setClient(""); setMission(""); setCode(""); setColor(PRESET_COLORS[0]); setTextColor("#ffffff"); setAdresse(""); setKm(0); };
+  const startEdit = (m: Mission) => { setEditId(m.id); setClient(m.Client); setMission(m.Mission); setCode(m.Code); setColor(m.Color); setTextColor((m.TextColor||"#ffffff") as "#ffffff"|"#000000"); setAdresse(m.Adresse||''); setKm(m.km||0); setMsg(""); };
   const remove = async (id: string) => {
     if (!confirm("Supprimer ?")) return;
     const { error } = await supabase.from("Mission").delete().eq("id",id);
@@ -61,6 +63,18 @@ export default function MissionForm() {
         <input value={client} onChange={e=>setClient(e.target.value)} placeholder="Client" style={inp} />
         <input value={mission} onChange={e=>setMission(e.target.value)} placeholder="Nom mission" style={inp} />
         <input value={code} onChange={e=>setCode(e.target.value)} placeholder="Code" style={inp} maxLength={6} />
+      </div>
+
+      {/* Adresse et km */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 120px", gap:"0.5rem", marginBottom:"0.6rem" }}>
+        <div>
+          <div style={{ fontSize:"0.78rem", color:"#666", marginBottom:"0.2rem" }}>Adresse du client</div>
+          <input value={adresse} onChange={e=>setAdresse(e.target.value)} placeholder="Adresse complète..." style={inp} />
+        </div>
+        <div>
+          <div style={{ fontSize:"0.78rem", color:"#666", marginBottom:"0.2rem" }}>Km aller-retour</div>
+          <input type="number" min={0} value={km} onChange={e=>setKm(parseInt(e.target.value)||0)} style={inp} />
+        </div>
       </div>
 
       {/* Couleur fond */}
@@ -98,7 +112,7 @@ export default function MissionForm() {
 
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"0.83rem" }}>
         <thead><tr style={{ background:"#2c3e50", color:"white" }}>
-          <th style={th}>Client</th><th style={th}>Mission</th><th style={th}>Code</th><th style={th}>Aperçu</th><th style={th}>Actions</th>
+          <th style={th}>Client</th><th style={th}>Mission</th><th style={th}>Code</th><th style={th}>Adresse</th><th style={th}>Km A/R</th><th style={th}>Aperçu</th><th style={th}>Actions</th>
         </tr></thead>
         <tbody>
           {missions.map((m,i)=>(
@@ -106,6 +120,8 @@ export default function MissionForm() {
               <td style={td}>{m.Client}</td>
               <td style={td}>{m.Mission}</td>
               <td style={td}>{m.Code}</td>
+              <td style={{ ...td, fontSize:"0.78rem", color:"#666", maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.Adresse||"—"}</td>
+              <td style={{ ...td, textAlign:"center", fontWeight:500 }}>{m.km>0?`${m.km} km`:"—"}</td>
               <td style={td}><span style={{ background:m.Color, color:m.TextColor||"#fff", padding:"0.15rem 0.5rem", borderRadius:3, fontWeight:"bold", fontSize:"0.8rem" }}>{m.Code}</span></td>
               <td style={td}>
                 <button onClick={()=>startEdit(m)} style={{ ...bs, background:"#3498db" }}>✏️</button>
