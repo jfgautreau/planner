@@ -685,7 +685,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         {/* Cellule mission */}
                         <td
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
-                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
+                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", padding:0, position:"relative", overflow:"hidden" }}
                         >
                           {ferie && (
                             <div style={{ fontSize:"0.4rem", color:"#555", textAlign:"center", padding:"1px 2px", lineHeight:1.1, position:"relative", zIndex:1 }}>
@@ -693,10 +693,10 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                             </div>
                           )}
                           {!blocked && (
-                            <div style={{ position:"absolute", inset:0, display:"flex" }}>
+                            <div style={{ position:"absolute", inset:0, display:"flex", zIndex:2 }}>
                               {journee ? (
                                 // Journée complète : une seule zone cliquable
-                                <div onClick={e => { e.stopPropagation(); if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
+                                <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
                                   style={{ flex:1, background:jStyle!.bg, display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:selectedCon?"pointer":"default" }}>
                                   {journee.copil && <CopilCorner />}
                                   {journee.distanciel && <DistancielCorner />}
@@ -706,7 +706,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                                 // Pas de journée : toujours 2 demi-zones même si vides
                                 <>
                                   {(() => { const s=matin?getAffStyle(matin):null; return (
-                                    <div onClick={e => { e.stopPropagation(); if (selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }}
+                                    <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }}
                                       style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.1)", outline:(isSelected&&!!matin)?"2px solid #f39c12":"none", outlineOffset:"-2px", cursor:selectedCon?"pointer":"default" }}>
                                       {matin?.copil && <CopilCorner />}
                                       {matin?.distanciel && <DistancielCorner />}
@@ -714,7 +714,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                                     </div>
                                   );})()}
                                   {(() => { const s=aprem?getAffStyle(aprem):null; return (
-                                    <div onClick={e => { e.stopPropagation(); if (selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }}
+                                    <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }}
                                       style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", outline:(isSelected&&!!aprem)?"2px solid #f39c12":"none", outlineOffset:"-2px", cursor:selectedCon?"pointer":"default" }}>
                                       {aprem?.copil && <CopilCorner />}
                                       {aprem?.distanciel && <DistancielCorner />}
