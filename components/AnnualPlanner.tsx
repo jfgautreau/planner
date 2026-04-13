@@ -168,7 +168,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const label   = new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" });
 
   // selectedAff : priorité à ce qui est cliqué, sinon unique aff du jour
-  const selectedAff = affs.find(a => a.id === selectedAffId) ?? (affs.length === 1 ? affs[0] : null);
+  const selectedAff = affs.find(a => a.id === selectedAffId) ?? null;
 
   // Reset quand on change de date
   useEffect(() => {
@@ -265,22 +265,25 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
         {/* COL 1 : Période */}
         <div style={{ ...col, minWidth:90 }}>
           <button onClick={() => {
-            if (selectedAff) { changePeriode(selectedAff, "journee"); }
-            else if (!journee) setPeriode("journee");
-          }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="journee" : periode==="journee")}>
+            if (selectedAffId && selectedAff) { changePeriode(selectedAff, "journee"); }
+            else if (journee) { setSelectedAffId(journee.id); }
+            else setPeriode("journee");
+          }} style={btn("#1a2744", journee ? true : periode==="journee")}>
             Journée
           </button>
           <div style={{ display:"flex", gap:"0.25rem" }}>
             <button onClick={() => {
-              if (selectedAff) { changePeriode(selectedAff, "matin"); }
-              else if (!matin && !journee) setPeriode("matin");
-            }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="matin" : periode==="matin")}>
+              if (selectedAffId && selectedAff) { changePeriode(selectedAff, "matin"); }
+              else if (matin) { setSelectedAffId(matin.id); }
+              else if (!journee) setPeriode("matin");
+            }} style={btn("#1a2744", matin ? true : (!journee && periode==="matin"))}>
               Matin
             </button>
             <button onClick={() => {
-              if (selectedAff) { changePeriode(selectedAff, "aprem"); }
-              else if (!aprem && !journee) setPeriode("aprem");
-            }} style={btn("#1a2744", selectedAff ? selectedAff.periode==="aprem" : periode==="aprem")}>
+              if (selectedAffId && selectedAff) { changePeriode(selectedAff, "aprem"); }
+              else if (aprem) { setSelectedAffId(aprem.id); }
+              else if (!journee) setPeriode("aprem");
+            }} style={btn("#1a2744", aprem ? true : (!journee && periode==="aprem"))}>
               A-midi
             </button>
           </div>
@@ -310,10 +313,18 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
               return (
                 <button key={m.id} onClick={() => {
                   if (!canEdit) return;
-                  if (active) { setSelectedAffId(affM!.id); }
-                  else if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                  else if (!journee && !affs.some(a => a.periode === periode)) { setAutoSelectNext(true); onPick(m.id, "mission", periode); }
-                  else if (periode === "journee" && !journee) { setAutoSelectNext(true); onPick(m.id, "mission", "journee"); }
+                  if (active) {
+                    // Mission déjà affectée → sélectionner
+                    setSelectedAffId(affM!.id);
+                  } else if (selectedAffId && selectedAff) {
+                    // Aff explicitement sélectionnée → changer sa mission
+                    onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id);
+                    setSelectedAffId(null);
+                  } else if (!journee && !affs.some(a => a.periode === periode)) {
+                    // Période libre → affecter
+                    setAutoSelectNext(true);
+                    onPick(m.id, "mission", periode);
+                  }
                 }} style={{
                   background: active ? m.Color : "white",
                   color: active ? (m.TextColor||"#fff") : m.Color,
@@ -333,10 +344,15 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
               return (
                 <button key={a.id} onClick={() => {
                   if (!canEdit) return;
-                  if (active) { setSelectedAffId(affA!.id); }
-                  else if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
-                  else if (!journee && !affs.some(af => af.periode === periode)) { setAutoSelectNext(true); onPick(a.id, "absence", periode); }
-                  else if (periode === "journee" && !journee) { setAutoSelectNext(true); onPick(a.id, "absence", "journee"); }
+                  if (active) {
+                    setSelectedAffId(affA!.id);
+                  } else if (selectedAffId && selectedAff) {
+                    onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id);
+                    setSelectedAffId(null);
+                  } else if (!journee && !affs.some(af => af.periode === periode)) {
+                    setAutoSelectNext(true);
+                    onPick(a.id, "absence", periode);
+                  }
                 }} style={{
                   background: active ? a.color : "white",
                   color: active ? "#fff" : a.color,
