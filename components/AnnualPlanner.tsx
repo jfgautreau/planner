@@ -222,7 +222,6 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
           <button onClick={() => {
             if (selectedAff) {
               // Changer la période de l'aff sélectionnée
-              if (affs.some(a => a.id !== selectedAff.id && (a.periode === "journee" || a.periode === "journee"))) return;
               if (affs.some(a => a.id !== selectedAff.id)) return; // journée impossible si autre aff
               const id = (selectedAff.mission?.id ?? selectedAff.Mission) || (selectedAff.absence?.id ?? selectedAff.Absence) || "";
               const type: "mission"|"absence" = (selectedAff.Mission || selectedAff.mission?.id) ? "mission" : "absence";
