@@ -150,11 +150,12 @@ type PanelProps = {
   onCopy: () => void;
   onPaste: () => void;
   onClose: () => void;
+  autoSelect?: boolean;
 };
 
 export const PANEL_HEIGHT = 100;
 
-export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose }: PanelProps) {
+export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose, autoSelect }: PanelProps) {
 
   const [periode, setPeriode]             = useState<"journee"|"matin"|"aprem">("journee");
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
@@ -168,9 +169,15 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
 
   // Reset quand on change de date
   useEffect(() => {
-    setSelectedAffId(null);
     setPeriode("journee");
-  }, [date]);
+    if (autoSelect) {
+      // Case occupée : sélectionner automatiquement la 1ère aff du jour
+      const dayAffs = affectations.filter(a => date ? a.Date.startsWith(date) : false);
+      setSelectedAffId(dayAffs.length > 0 ? dayAffs[0].id : null);
+    } else {
+      setSelectedAffId(null);
+    }
+  }, [date, autoSelect]);
 
   // Touche Del = supprimer l'aff sélectionnée
   const selRef = React.useRef<Affectation|null>(null);
@@ -761,7 +768,8 @@ export default function AnnualPlanner() {
     return new Date().getFullYear();
   });
 
-  const [panelDate, setPanelDate]     = useState<string|null>(null);
+  const [panelDate, setPanelDate]         = useState<string|null>(null);
+  const [panelAutoSelect, setPanelAutoSelect] = useState(false);
   const [addPeriode, setAddPeriode]   = useState<"journee"|"matin"|"aprem">("journee");
   const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
   const [todayStr, setTodayStr] = useState(() => new Date().toISOString().slice(0,10));
@@ -826,8 +834,9 @@ export default function AnnualPlanner() {
       .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
 
-  const handleDayClick = useCallback((ds: string, _hasAffs: boolean) => {
+  const handleDayClick = useCallback((ds: string, hasAffs: boolean) => {
     setPanelDate(ds);
+    setPanelAutoSelect(hasAffs); // auto-sélectionner la 1ère aff si case occupée
   }, []);
 
   const saveAff = useCallback(async (
@@ -940,6 +949,7 @@ export default function AnnualPlanner() {
       {/* Bandeau bas — toujours visible */}
       <BottomPanel
           date={panelDate ?? ""}
+          autoSelect={panelAutoSelect}
           sultantName={panelDate && consultants.find(c=>c.id===selectedCon) ? `${consultants.find(c=>c.id===selectedCon)!.Nom} ${consultants.find(c=>c.id===selectedCon)!.Prénom}` : ""}
           affectations={affectations}
           missions={missions} absences={absences}
