@@ -11,7 +11,7 @@ type Absence     = { id: string; code: string; nom: string; color: string };
 type Affectation = {
   id: string; Date: string; Sultant: string;
   Mission: string|null; Absence: string|null;
-  periode: "journee"|"matin"|"aprem"; copil: boolean; distanciel: boolean;
+  periode: "journee"|"matin"|"aprem"; copil: boolean; distanciel: boolean; created_at?: string;
   mission?: Mission|null; absence?: Absence|null;
 };
 type JourFerie = { date: string; nom: string };
@@ -334,7 +334,24 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
           </div>
         </div>
 
-        {/* COL 3 : Copier/Coller + Supprimer */}
+        {/* COL historique : date d'affectation */}
+        {affs.length > 0 && (
+          <div style={{ ...col, fontSize:"0.62rem", color:"#888", minWidth:90, gap:"0.15rem" }}>
+            {affs.map(aff => {
+              const st = getAffStyle(aff);
+              const d = aff.created_at ? new Date(aff.created_at).toLocaleDateString("fr-FR", { day:"2-digit", month:"2-digit", year:"2-digit" }) : "—";
+              return (
+                <div key={aff.id} style={{ display:"flex", alignItems:"center", gap:"0.3rem" }}>
+                  <span style={{ background:st.bg, color:st.text, padding:"0.05rem 0.3rem", borderRadius:3, fontWeight:"bold", fontSize:"0.62rem", flexShrink:0 }}>{st.code}</span>
+                  <span style={{ fontSize:"0.6rem", color:"#aaa" }}>{aff.periode==="journee"?"J":aff.periode==="matin"?"M":"A"}</span>
+                  <span style={{ fontSize:"0.6rem" }}>↗ {d}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* COL 4 : Copier/Coller + Supprimer */}
         {canEdit && (
           <div style={{ ...col, borderRight:"none", flexDirection:"row", alignItems:"center", gap:"0.4rem" }}>
             <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem" }}>
@@ -751,9 +768,21 @@ export default function AnnualPlanner() {
   const [panelDate, setPanelDate]     = useState<string|null>(null);
   const [addPeriode, setAddPeriode]   = useState<"journee"|"matin"|"aprem">("journee");
   const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
-  const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
-
-  const todayYear = useMemo(() => new Date().getFullYear(), []);
+  const [todayStr, setTodayStr] = useState(() => new Date().toISOString().slice(0,10));
+  const [todayYear, setTodayYear] = useState(() => new Date().getFullYear());
+  useEffect(() => {
+    const update = () => {
+      setTodayStr(new Date().toISOString().slice(0,10));
+      setTodayYear(new Date().getFullYear());
+    };
+    // Mettre à jour au focus de la fenêtre (F5, retour sur l'onglet)
+    window.addEventListener("focus", update);
+    // Aussi à minuit
+    const now = new Date();
+    const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1).getTime() - now.getTime();
+    const t = setTimeout(() => { update(); }, msToMidnight);
+    return () => { window.removeEventListener("focus", update); clearTimeout(t); };
+  }, []);
 
   useEffect(() => {
     if (access.loading) return;
@@ -796,7 +825,7 @@ export default function AnnualPlanner() {
   useEffect(() => {
     if (!selectedCon) return;
     supabase.from("Affectation")
-      .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+      .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
       .eq("Sultant", selectedCon).gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`)
       .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
@@ -822,7 +851,7 @@ export default function AnnualPlanner() {
     } else {
       const { data, error } = await supabase.from("Affectation")
         .insert({ Date:panelDate, Sultant:selectedCon, periode, copil:false, distanciel:false, ...payload })
-        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (error) return;
       setAffectations(prev => [...prev, data as unknown as Affectation]);
@@ -851,7 +880,7 @@ export default function AnnualPlanner() {
       const payload = aff.mission ? { Mission: aff.mission.id ?? aff.Mission, Absence: null } : { Absence: aff.absence?.id ?? aff.Absence, Mission: null };
       const { data, error } = await supabase.from("Affectation")
         .insert({ Date:panelDate, Sultant:selectedCon, periode:aff.periode, copil:aff.copil, distanciel:aff.distanciel, ...payload })
-        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (!error && data) setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
