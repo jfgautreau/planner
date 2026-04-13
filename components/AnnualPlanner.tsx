@@ -687,38 +687,40 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         {/* Cellule mission — display:flex direct sur td */}
                         <td
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
-                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", padding:0, display:"flex", overflow:"hidden" }}
+                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", padding:0, position:"relative", overflow:"hidden" }}
                           draggable={!blocked && hasAffs && canEdit}
                           onDragStart={() => { setDragFrom(dateStr); if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
                           onDragOver={e => { if (dragFrom && dragFrom !== dateStr && !blocked) e.preventDefault(); }}
                           onDrop={e => { e.preventDefault(); if (dragFrom && dragFrom !== dateStr && onMoveAff) { onMoveAff(dragFrom, dateStr); setDragFrom(null); } }}
+                          onClick={() => { if (!blocked && selectedCon && canRead && !journee && !matin && !aprem) onFirstClick(dateStr, false, false); }}
                         >
-                          {blocked ? null : journee ? (
-                            <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
-                              style={{ flex:1, background:jStyle!.bg, display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:"pointer" }}>
+                          {!blocked && journee && (
+                            <div onClick={e => { e.stopPropagation(); if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
+                              style={{ position:"absolute", inset:0, background:jStyle!.bg, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
                               {journee.copil && <CopilCorner />}
                               {journee.distanciel && <DistancielCorner />}
                               <span style={{ color:jStyle!.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle!.code}</span>
                             </div>
-                          ) : (
-                            <>
+                          )}
+                          {!blocked && !journee && (
+                            <div style={{ position:"absolute", inset:0, display:"flex" }}>
                               {(() => { const s=matin?getAffStyle(matin):null; return (
-                                <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }}
-                                  style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.1)", cursor:selectedCon?"pointer":"default" }}>
+                                <div onClick={e => { e.stopPropagation(); if (selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }}
+                                  style={{ flex:1, minWidth:0, background:s?.bg||"transparent", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.1)", cursor:selectedCon?"pointer":"default" }}>
                                   {matin?.copil && <CopilCorner />}
                                   {matin?.distanciel && <DistancielCorner />}
                                   {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
                               );})()}
                               {(() => { const s=aprem?getAffStyle(aprem):null; return (
-                                <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }}
-                                  style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:selectedCon?"pointer":"default" }}>
+                                <div onClick={e => { e.stopPropagation(); if (selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }}
+                                  style={{ flex:1, minWidth:0, background:s?.bg||"transparent", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:selectedCon?"pointer":"default" }}>
                                   {aprem?.copil && <CopilCorner />}
                                   {aprem?.distanciel && <DistancielCorner />}
                                   {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
                               );})()}
-                            </>
+                            </div>
                           )}
                         </td>
                       </React.Fragment>
