@@ -161,6 +161,13 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
   const [autoSelectNext, setAutoSelectNext] = useState(false);
 
+  // Pas de date sélectionnée → bandeau neutre
+  if (!date) return (
+    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:600, background:"white", borderTop:"2px solid #1a2744", height: PANEL_HEIGHT, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <span style={{ color:"#aaa", fontSize:"0.8rem" }}>Cliquez sur un jour pour le modifier</span>
+    </div>
+  );
+
   const affs    = affectations.filter(a => a.Date.startsWith(date));
   const journee = affs.find(a => a.periode==="journee");
   const matin   = affs.find(a => a.periode==="matin");
@@ -179,14 +186,22 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     else if (!journee && !aprem)      setPeriode("aprem");
   }, [date]);
 
-  // Auto-sélectionner la dernière aff créée pour pouvoir changer sa période
+  // Auto-sélectionner la dernière aff créée, puis libérer pour la période suivante
   const prevAffsLenRef = React.useRef(0);
   useEffect(() => {
     const currentAffs = affectations.filter(a => a.Date.startsWith(date));
     if (autoSelectNext && currentAffs.length > prevAffsLenRef.current) {
       const last = currentAffs[currentAffs.length - 1];
-      setSelectedAffId(last.id);
+      setSelectedAffId(null); // Ne pas auto-sélectionner → laisse libre pour affecter autre chose
       setAutoSelectNext(false);
+      // Passer au prochain créneau libre
+      const hasMatin = currentAffs.some(a => a.periode === "matin");
+      const hasAprem = currentAffs.some(a => a.periode === "aprem");
+      const hasJournee = currentAffs.some(a => a.periode === "journee");
+      if (!hasJournee) {
+        if (!hasMatin) setPeriode("matin");
+        else if (!hasAprem) setPeriode("aprem");
+      }
     }
     prevAffsLenRef.current = currentAffs.length;
   }, [affectations, autoSelectNext, date]);
@@ -299,6 +314,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   if (active) { setSelectedAffId(affM!.id); }
                   else if (selectedAff) { onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
                   else if (!journee && !affs.some(a => a.periode === periode)) { setAutoSelectNext(true); onPick(m.id, "mission", periode); }
+                  else if (periode === "journee" && !journee) { setAutoSelectNext(true); onPick(m.id, "mission", "journee"); }
                 }} style={{
                   background: active ? m.Color : "white",
                   color: active ? (m.TextColor||"#fff") : m.Color,
@@ -321,6 +337,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   if (active) { setSelectedAffId(affA!.id); }
                   else if (selectedAff) { onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id); setSelectedAffId(null); }
                   else if (!journee && !affs.some(af => af.periode === periode)) { setAutoSelectNext(true); onPick(a.id, "absence", periode); }
+                  else if (periode === "journee" && !journee) { setAutoSelectNext(true); onPick(a.id, "absence", "journee"); }
                 }} style={{
                   background: active ? a.color : "white",
                   color: active ? "#fff" : a.color,
