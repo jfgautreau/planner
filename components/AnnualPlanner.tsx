@@ -165,18 +165,16 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const matin   = affs.find(a => a.periode === "matin");
   const aprem   = affs.find(a => a.periode === "aprem");
   const label   = date ? new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" }) : "";
-  const selectedAff = affs.find(a => a.id === selectedAffId) ?? null;
+  // Auto-sélectionner si 1 seule aff (pas besoin de cliquer)
+  const selectedAff = affs.find(a => a.id === selectedAffId) ?? (affs.length === 1 ? affs[0] : null);
 
   // Reset quand on change de date
   useEffect(() => {
     setPeriode("journee");
-    if (autoSelect) {
-      // Case occupée : sélectionner automatiquement la 1ère aff du jour
-      const dayAffs = affectations.filter(a => date ? a.Date.startsWith(date) : false);
-      setSelectedAffId(dayAffs.length > 0 ? dayAffs[0].id : null);
-    } else {
-      setSelectedAffId(null);
-    }
+    // Si plusieurs affs → sélectionner la 1ère explicitement
+    // Si 1 seule aff → auto-géré par selectedAff (pas besoin de stocker)
+    const dayAffs = affectations.filter(a => date ? a.Date.startsWith(date) : false);
+    setSelectedAffId(dayAffs.length > 1 ? dayAffs[0].id : null);
   }, [date, autoSelect]);
 
   // Touche Del = supprimer l'aff sélectionnée
