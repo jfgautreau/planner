@@ -391,7 +391,7 @@ type MobileCalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
   selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string;
-  onFirstClick: (ds: string, hasAffs: boolean) => void;
+  onFirstClick: (ds: string, hasAffs: boolean, clickedOnAff?: boolean) => void;
 };
 
 function MobileCalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, onFirstClick }: MobileCalViewProps) {
@@ -544,7 +544,7 @@ type CalViewProps = {
   year: number; affectations: Affectation[];
   joursFeries: JourFerie[]; conges: CongeJour[];
   selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string; panelOpen: boolean; selectedDate: string|null;
-  onFirstClick: (ds: string, hasAffs: boolean) => void;
+  onFirstClick: (ds: string, hasAffs: boolean, clickedOnAff?: boolean) => void;
 };
 
 function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick }: CalViewProps) {
@@ -684,7 +684,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
 
                         {/* Cellule mission */}
                         <td
-                          onClick={() => { if (!blocked && selectedCon && canRead) onFirstClick(dateStr, hasAffs); }}
+                          onClick={() => { if (!blocked && selectedCon && canRead) onFirstClick(dateStr, hasAffs, !!journee || (!!matin && !!aprem)); }}
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
                           style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
                         >
@@ -703,14 +703,14 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                           {!blocked && !journee && (matin||aprem) && (
                             <div style={{ position:"absolute", inset:0, display:"flex" }}>
                               {(() => { const s=matin?getAffStyle(matin):null; return (
-                                <div style={{ flex:1, background:s?.bg||(matin?"#e8e8e8":"white"), display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.08)", outline: (isSelected&&matin)?"2px solid #f39c12":"none", outlineOffset:"-2px" }}>
+                                <div onClick={e => { e.stopPropagation(); if (!blocked && selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }} style={{ flex:1, background:s?.bg||(matin?"#e8e8e8":"white"), display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.08)", outline: (isSelected&&matin)?"2px solid #f39c12":"none", outlineOffset:"-2px", cursor:selectedCon&&!blocked?"pointer":"default" }}>
                                   {matin?.copil && <CopilCorner />}
                                   {matin?.distanciel && <DistancielCorner />}
                                   {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
                               );})()}
                               {(() => { const s=aprem?getAffStyle(aprem):null; return (
-                                <div style={{ flex:1, background:s?.bg||(aprem?"#e8e8e8":"white"), display:"flex", alignItems:"center", justifyContent:"center", position:"relative", outline: (isSelected&&aprem)?"2px solid #f39c12":"none", outlineOffset:"-2px" }}>
+                                <div onClick={e => { e.stopPropagation(); if (!blocked && selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }} style={{ flex:1, background:s?.bg||(aprem?"#e8e8e8":"white"), display:"flex", alignItems:"center", justifyContent:"center", position:"relative", outline: (isSelected&&aprem)?"2px solid #f39c12":"none", outlineOffset:"-2px", cursor:selectedCon&&!blocked?"pointer":"default" }}>
                                   {aprem?.copil && <CopilCorner />}
                                   {aprem?.distanciel && <DistancielCorner />}
                                   {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
@@ -830,9 +830,10 @@ export default function AnnualPlanner() {
       .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
 
-  const handleDayClick = useCallback((ds: string, hasAffs: boolean) => {
+  const handleDayClick = useCallback((ds: string, hasAffs: boolean, clickedOnAff?: boolean) => {
     setPanelDate(ds);
-    setPanelAutoSelect(hasAffs); // auto-sélectionner la 1ère aff si case occupée
+    // Auto-sélectionner seulement si on a cliqué sur une partie occupée
+    setPanelAutoSelect(clickedOnAff ?? hasAffs);
   }, []);
 
   const saveAff = useCallback(async (
