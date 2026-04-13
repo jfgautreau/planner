@@ -298,7 +298,6 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   border: `${isSel ? 2.5 : 1.5}px solid ${m.Color}`,
                   borderRadius:4, padding:"0.28rem 0.55rem", cursor:"pointer",
                   fontWeight:"bold", fontSize:"0.76rem", flexShrink:0,
-                  boxShadow: isSel ? "0 0 0 2px #f39c12" : "none",
                   opacity: (!active && !selectedAff && periodeBloquee) ? 0.4 : 1,
                 }}>{m.Code}</button>
               );
@@ -326,7 +325,6 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   border: `${isSel ? 2.5 : 1.5}px solid ${a.color}`,
                   borderRadius:4, padding:"0.28rem 0.55rem", cursor:"pointer",
                   fontWeight:"bold", fontSize:"0.76rem", flexShrink:0,
-                  boxShadow: isSel ? "0 0 0 2px #f39c12" : "none",
                   opacity: (!active && !selectedAff && periodeBloquee) ? 0.4 : 1,
                 }}>{a.code}</button>
               );
@@ -661,7 +659,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                     return (
                       <React.Fragment key={mi}>
                         {/* Numéro du jour */}
-                        <td style={{ textAlign:"center", background:isToday?"#111":"#eceff1", border:isSelected?"2px solid #f39c12":"1px solid #ddd", borderTop: isMonday?"2px solid #9e9e9e":"1px solid #ddd", borderBottom: isSunday?"2px solid #9e9e9e":undefined, color:isToday?"white":"#546e7a", fontSize:"0.58rem", padding:0, fontWeight:"bold" }}>
+                        <td style={{ textAlign:"center", background:isToday?"#111":"#eceff1", border:"1px solid #ddd", borderTop: isMonday?"2px solid #9e9e9e":"1px solid #ddd", borderBottom: isSunday?"2px solid #9e9e9e":undefined, color:isToday?"white":"#546e7a", fontSize:"0.58rem", padding:0, fontWeight:"bold" }}>
                           {dayNum}
                         </td>
 
@@ -688,7 +686,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         <td
                           onClick={() => { if (!blocked && selectedCon && canRead) onFirstClick(dateStr, hasAffs); }}
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
-                          style={{ background:blocked?GRAY:(jStyle?.bg||"white"), border:isSelected?"2px solid #f39c12":isToday?"1px solid #ddd":"1px solid #ddd", outline:isSelected?"2px solid #f39c12":undefined, cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
+                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", cursor:selectedCon&&!blocked?"pointer":"default", padding:0, position:"relative", overflow:"hidden" }}
                         >
                           {ferie && (
                             <div style={{ fontSize:"0.4rem", color:"#555", textAlign:"center", padding:"1px 2px", lineHeight:1.1, position:"relative", zIndex:1 }}>
@@ -696,7 +694,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                             </div>
                           )}
                           {!blocked && journee && jStyle && (
-                            <div style={{ position:"absolute", inset:0, background:jStyle.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <div style={{ position:"absolute", inset:0, background:jStyle.bg, display:"flex", alignItems:"center", justifyContent:"center", outline: isSelected?"2px solid #f39c12":"none", outlineOffset:"-2px" }}>
                               {journee.copil && <CopilCorner />}
                               {journee.distanciel && <DistancielCorner />}
                               <span style={{ color:jStyle.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle.code}</span>
@@ -705,14 +703,14 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                           {!blocked && !journee && (matin||aprem) && (
                             <div style={{ position:"absolute", inset:0, display:"flex" }}>
                               {(() => { const s=matin?getAffStyle(matin):null; return (
-                                <div style={{ flex:1, background:s?.bg||"#e8e8e8", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(255,255,255,0.5)" }}>
+                                <div style={{ flex:1, background:s?.bg||(matin?"#e8e8e8":"white"), display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.08)", outline: (isSelected&&matin)?"2px solid #f39c12":"none", outlineOffset:"-2px" }}>
                                   {matin?.copil && <CopilCorner />}
                                   {matin?.distanciel && <DistancielCorner />}
                                   {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
                               );})()}
                               {(() => { const s=aprem?getAffStyle(aprem):null; return (
-                                <div style={{ flex:1, background:s?.bg||"#e8e8e8", display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                                <div style={{ flex:1, background:s?.bg||(aprem?"#e8e8e8":"white"), display:"flex", alignItems:"center", justifyContent:"center", position:"relative", outline: (isSelected&&aprem)?"2px solid #f39c12":"none", outlineOffset:"-2px" }}>
                                   {aprem?.copil && <CopilCorner />}
                                   {aprem?.distanciel && <DistancielCorner />}
                                   {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
