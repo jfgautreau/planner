@@ -203,8 +203,9 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     const conflit = affs.some(a => a.id !== aff.id && (a.periode === p || a.periode === "journee"));
     const conflitJournee = p === "journee" && affs.some(a => a.id !== aff.id);
     if (conflit || conflitJournee) return;
-    const itemId = aff.mission?.id ?? aff.Mission ?? aff.absence?.id ?? aff.Absence ?? "";
-    const type: "mission"|"absence" = (aff.Mission || aff.mission?.id) ? "mission" : "absence";
+    const isMission = !!(aff.Mission || aff.mission?.id);
+    const itemId = isMission ? (aff.mission?.id ?? aff.Mission ?? "") : (aff.absence?.id ?? aff.Absence ?? "");
+    const type: "mission"|"absence" = isMission ? "mission" : "absence";
     onChangeAff(itemId, type, p, aff.id);
   };
 
@@ -851,7 +852,7 @@ export default function AnnualPlanner() {
       if (error) return;
       setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
-  }, [panelDate, selectedCon, missions, absences]);
+  }, [panelDate, selectedCon, canEditSelected, missions, absences]);
 
   const deleteAff = useCallback(async (id: string) => {
     await supabase.from("Affectation").delete().eq("id",id);
