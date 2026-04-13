@@ -156,7 +156,7 @@ export const PANEL_HEIGHT = 100;
 
 export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose }: PanelProps) {
 
-  const [periode, setPeriode]         = useState<"journee"|"matin"|"aprem">("journee");
+  const [periode, setPeriode]             = useState<"journee"|"matin"|"aprem">("journee");
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
 
   const affs    = affectations.filter(a => date ? a.Date.startsWith(date) : false);
@@ -166,13 +166,13 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const label   = date ? new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" }) : "";
   const selectedAff = affs.find(a => a.id === selectedAffId) ?? null;
 
-  // Reset à chaque changement de date
+  // Reset quand on change de date
   useEffect(() => {
     setSelectedAffId(null);
     setPeriode("journee");
   }, [date]);
 
-  // Touche Suppr
+  // Touche Del = supprimer l'aff sélectionnée
   const selRef = React.useRef<Affectation|null>(null);
   selRef.current = selectedAff;
   useEffect(() => {
@@ -197,11 +197,25 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
     padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flexShrink:0,
   };
 
+  // Helper : changer la période d'une aff existante
+  const doChangePeriode = (aff: Affectation, p: "journee"|"matin"|"aprem") => {
+    // Vérifier qu'aucune autre aff n'occupe déjà ce créneau
+    const conflit = affs.some(a => a.id !== aff.id && (a.periode === p || a.periode === "journee"));
+    const conflitJournee = p === "journee" && affs.some(a => a.id !== aff.id);
+    if (conflit || conflitJournee) return;
+    const itemId = aff.mission?.id ?? aff.Mission ?? aff.absence?.id ?? aff.Absence ?? "";
+    const type: "mission"|"absence" = (aff.Mission || aff.mission?.id) ? "mission" : "absence";
+    onChangeAff(itemId, type, p, aff.id);
+  };
+
   if (!date) return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:600, background:"white", borderTop:"2px solid #1a2744", height: PANEL_HEIGHT, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <span style={{ color:"#aaa", fontSize:"0.8rem" }}>Cliquez sur un jour pour le modifier</span>
     </div>
   );
+
+  // Peut-on affecter sur la période courante ?
+  const periodeBloquee = !!journee || affs.some(a => a.periode === periode);
 
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:600, background:"white", borderTop:"2px solid #1a2744", boxShadow:"0 -4px 16px rgba(0,0,0,0.12)", height: PANEL_HEIGHT }}>
@@ -216,42 +230,28 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       <div style={{ display:"flex", height: PANEL_HEIGHT - 18, alignItems:"stretch" }}>
 
         {/* COL 1 : Période
-            - Coloré = période active pour la prochaine affectation (ou période de l'aff sélectionnée)
-            - Clic = choisir la période (si aff sélectionnée : change sa période) */}
+            Sans sélection : choisit la période pour la prochaine affectation
+            Avec sélection : change la période de l'aff sélectionnée */}
         <div style={{ ...col, minWidth:100 }}>
           <button onClick={() => {
-            if (selectedAff) {
-              // Changer la période de l'aff sélectionnée
-              if (affs.some(a => a.id !== selectedAff.id)) return; // journée impossible si autre aff
-              const id = (selectedAff.mission?.id ?? selectedAff.Mission) || (selectedAff.absence?.id ?? selectedAff.Absence) || "";
-              const type: "mission"|"absence" = (selectedAff.Mission || selectedAff.mission?.id) ? "mission" : "absence";
-              onChangeAff(id, type, "journee", selectedAff.id);
-            } else {
-              setPeriode("journee");
-            }
+            if (selectedAff) { doChangePeriode(selectedAff, "journee"); }
+            else              { setPeriode("journee"); }
           }} style={btn("#1a2744", selectedAff ? selectedAff.periode === "journee" : periode === "journee")}>
             Journée
           </button>
           <div style={{ display:"flex", gap:"0.25rem" }}>
-            {(["matin","aprem"] as const).map(p => (
+            {(["matin", "aprem"] as const).map(p => (
               <button key={p} onClick={() => {
-                if (selectedAff) {
-                  // Vérifier que le créneau cible est libre
-                  if (affs.some(a => a.id !== selectedAff.id && (a.periode === p || a.periode === "journee"))) return;
-                  const id = (selectedAff.mission?.id ?? selectedAff.Mission) || (selectedAff.absence?.id ?? selectedAff.Absence) || "";
-                  const type: "mission"|"absence" = (selectedAff.Mission || selectedAff.mission?.id) ? "mission" : "absence";
-                  onChangeAff(id, type, p, selectedAff.id);
-                } else {
-                  if (!journee) setPeriode(p);
-                }
-              }} style={btn("#1a2744", selectedAff ? selectedAff.periode === p : (!journee && periode === p))}>
+                if (selectedAff) { doChangePeriode(selectedAff, p); }
+                else              { setPeriode(p); }
+              }} style={btn("#1a2744", selectedAff ? selectedAff.periode === p : periode === p)}>
                 {p === "matin" ? "Matin" : "A-midi"}
               </button>
             ))}
           </div>
         </div>
 
-        {/* COL 2 : COPIL + Distanciel */}
+        {/* COL 2 : COPIL + Distanciel (sur l'aff sélectionnée) */}
         {canEdit && (
           <div style={col}>
             <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
@@ -262,30 +262,29 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
         )}
 
         {/* COL 3 : Missions + Absences
-            - Coloré = affecté ce jour
-            - Clic sur coloré → sélectionner cette aff (2ème clic = désélectionner)
-            - Clic sur blanc avec aff sélectionnée → remplacer la mission de l'aff
-            - Clic sur blanc sans aff sélectionnée → affecter sur la période courante */}
+            Règles :
+            1. Mission COLORÉE (déjà affectée) → clic = sélectionner (2ème clic = désélectionner)
+            2. Mission BLANCHE + aff sélectionnée → clic = remplacer la mission de l'aff sélectionnée
+            3. Mission BLANCHE + rien sélectionné + période libre → clic = nouvelle affectation */}
         <div style={{ display:"flex", flexDirection:"column", gap:"0.28rem", justifyContent:"center", padding:"0.3rem 0.7rem", borderRight:"1px solid #e0e0e0", flex:1, overflow:"hidden" }}>
           <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto" }}>
             {missions.map(m => {
-              const affM = affs.find(a => (a.mission?.id ?? a.Mission) === m.id);
+              const affM   = affs.find(a => (a.mission?.id ?? a.Mission) === m.id);
               const active = !!affM;
               const isSel  = active && selectedAff?.id === affM!.id;
               return (
                 <button key={m.id} onClick={() => {
                   if (!canEdit) return;
                   if (active) {
-                    // Coloré → sélectionner (ou désélectionner)
+                    // Règle 1 : sélectionner / désélectionner
                     setSelectedAffId(isSel ? null : affM!.id);
                   } else if (selectedAff) {
-                    // Blanc + aff sélectionnée → changer la mission
+                    // Règle 2 : remplacer la mission de l'aff sélectionnée
                     onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id);
                     setSelectedAffId(null);
-                  } else {
-                    // Blanc + rien sélectionné → nouvelle affectation
-                    const ok = !journee && !affs.some(a => a.periode === periode);
-                    if (ok) onPick(m.id, "mission", periode);
+                  } else if (!periodeBloquee) {
+                    // Règle 3 : nouvelle affectation
+                    onPick(m.id, "mission", periode);
                   }
                 }} style={{
                   background: active ? m.Color : "white",
@@ -294,13 +293,14 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   borderRadius:4, padding:"0.28rem 0.55rem", cursor:"pointer",
                   fontWeight:"bold", fontSize:"0.76rem", flexShrink:0,
                   boxShadow: isSel ? "0 0 0 2px #f39c12" : "none",
+                  opacity: (!active && !selectedAff && periodeBloquee) ? 0.4 : 1,
                 }}>{m.Code}</button>
               );
             })}
           </div>
           <div style={{ display:"flex", gap:"0.25rem", overflowX:"auto" }}>
             {absences.map(a => {
-              const affA = affs.find(af => (af.absence?.id ?? af.Absence) === a.id);
+              const affA   = affs.find(af => (af.absence?.id ?? af.Absence) === a.id);
               const active = !!affA;
               const isSel  = active && selectedAff?.id === affA!.id;
               return (
@@ -311,9 +311,8 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   } else if (selectedAff) {
                     onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id);
                     setSelectedAffId(null);
-                  } else {
-                    const ok = !journee && !affs.some(af => af.periode === periode);
-                    if (ok) onPick(a.id, "absence", periode);
+                  } else if (!periodeBloquee) {
+                    onPick(a.id, "absence", periode);
                   }
                 }} style={{
                   background: active ? a.color : "white",
@@ -322,6 +321,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   borderRadius:4, padding:"0.28rem 0.55rem", cursor:"pointer",
                   fontWeight:"bold", fontSize:"0.76rem", flexShrink:0,
                   boxShadow: isSel ? "0 0 0 2px #f39c12" : "none",
+                  opacity: (!active && !selectedAff && periodeBloquee) ? 0.4 : 1,
                 }}>{a.code}</button>
               );
             })}
@@ -352,8 +352,10 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
               <button onClick={onCopy} style={btn("#f39c12", false)}>📋 Copier</button>
               <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
-            <button onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
-              style={btn("#e74c3c", false)} title="Supprimer (Del)">🗑 Suppr</button>
+            <button
+              onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
+              style={btn("#e74c3c", false)}
+              title="Supprimer (Del)">🗑 Suppr</button>
           </div>
         )}
       </div>
