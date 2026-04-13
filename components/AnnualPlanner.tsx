@@ -545,9 +545,11 @@ type CalViewProps = {
   joursFeries: JourFerie[]; conges: CongeJour[];
   selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string; panelOpen: boolean; selectedDate: string|null;
   onFirstClick: (ds: string, hasAffs: boolean, clickedOnAff?: boolean) => void;
+  onMoveAff?: (fromDate: string, toDate: string) => void;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick, onMoveAff }: CalViewProps) {
+  const [dragFrom, setDragFrom] = useState<string|null>(null);
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const affMap = useMemo(() => {
@@ -682,48 +684,41 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                           </div>
                         </td>
 
-                        {/* Cellule mission */}
+                        {/* Cellule mission — display:flex direct sur td */}
                         <td
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
-                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", padding:0, position:"relative", overflow:"hidden" }}
+                          style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", padding:0, display:"flex", overflow:"hidden" }}
+                          draggable={!blocked && hasAffs && canEdit}
+                          onDragStart={() => { setDragFrom(dateStr); if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
+                          onDragOver={e => { if (dragFrom && dragFrom !== dateStr && !blocked) e.preventDefault(); }}
+                          onDrop={e => { e.preventDefault(); if (dragFrom && dragFrom !== dateStr && onMoveAff) { onMoveAff(dragFrom, dateStr); setDragFrom(null); } }}
                         >
-                          {ferie && (
-                            <div style={{ fontSize:"0.4rem", color:"#555", textAlign:"center", padding:"1px 2px", lineHeight:1.1, position:"relative", zIndex:1 }}>
-                              {ferie.nom}
+                          {blocked ? null : journee ? (
+                            <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
+                              style={{ flex:1, background:jStyle!.bg, display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:"pointer" }}>
+                              {journee.copil && <CopilCorner />}
+                              {journee.distanciel && <DistancielCorner />}
+                              <span style={{ color:jStyle!.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle!.code}</span>
                             </div>
-                          )}
-                          {!blocked && (
-                            <div style={{ position:"absolute", inset:0, display:"flex", zIndex:2 }}>
-                              {journee ? (
-                                // Journée complète : une seule zone cliquable
-                                <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
-                                  style={{ flex:1, background:jStyle!.bg, display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:selectedCon?"pointer":"default" }}>
-                                  {journee.copil && <CopilCorner />}
-                                  {journee.distanciel && <DistancielCorner />}
-                                  <span style={{ color:jStyle!.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle!.code}</span>
+                          ) : (
+                            <>
+                              {(() => { const s=matin?getAffStyle(matin):null; return (
+                                <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }}
+                                  style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.1)", cursor:selectedCon?"pointer":"default" }}>
+                                  {matin?.copil && <CopilCorner />}
+                                  {matin?.distanciel && <DistancielCorner />}
+                                  {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
                                 </div>
-                              ) : (
-                                // Pas de journée : toujours 2 demi-zones même si vides
-                                <>
-                                  {(() => { const s=matin?getAffStyle(matin):null; return (
-                                    <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!matin, !!matin); }}
-                                      style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.1)", outline:(isSelected&&!!matin)?"2px solid #f39c12":"none", outlineOffset:"-2px", cursor:selectedCon?"pointer":"default" }}>
-                                      {matin?.copil && <CopilCorner />}
-                                      {matin?.distanciel && <DistancielCorner />}
-                                      {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
-                                    </div>
-                                  );})()}
-                                  {(() => { const s=aprem?getAffStyle(aprem):null; return (
-                                    <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }}
-                                      style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", outline:(isSelected&&!!aprem)?"2px solid #f39c12":"none", outlineOffset:"-2px", cursor:selectedCon?"pointer":"default" }}>
-                                      {aprem?.copil && <CopilCorner />}
-                                      {aprem?.distanciel && <DistancielCorner />}
-                                      {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
-                                    </div>
-                                  );})()}
-                                </>
-                              )}
-                            </div>
+                              );})()}
+                              {(() => { const s=aprem?getAffStyle(aprem):null; return (
+                                <div onClick={() => { if (selectedCon && canRead) onFirstClick(dateStr, !!aprem, !!aprem); }}
+                                  style={{ flex:1, background:s?.bg||"white", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:selectedCon?"pointer":"default" }}>
+                                  {aprem?.copil && <CopilCorner />}
+                                  {aprem?.distanciel && <DistancielCorner />}
+                                  {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
+                                </div>
+                              );})()}
+                            </>
                           )}
                         </td>
                       </React.Fragment>
@@ -867,6 +862,16 @@ export default function AnnualPlanner() {
     }
   }, [panelDate, selectedCon, canEditSelected, missions, absences]);
 
+  const moveAff = useCallback(async (fromDate: string, toDate: string) => {
+    if (!selectedCon || !canEditSelected) return;
+    const fromAffs = affectations.filter(a => a.Date.startsWith(fromDate) && a.Sultant === selectedCon);
+    if (fromAffs.length === 0) return;
+    for (const aff of fromAffs) {
+      await supabase.from("Affectation").update({ Date: toDate }).eq("id", aff.id);
+      setAffectations(prev => prev.map(a => a.id === aff.id ? {...a, Date: toDate} : a));
+    }
+  }, [selectedCon, canEditSelected, affectations]);
+
   const deleteAff = useCallback(async (id: string) => {
     await supabase.from("Affectation").delete().eq("id",id);
     setAffectations(prev => prev.filter(a => a.id!==id));
@@ -946,7 +951,7 @@ export default function AnnualPlanner() {
       <div style={{ flex:1, overflow:"hidden", minHeight:0 }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} onFirstClick={handleDayClick} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} onFirstClick={handleDayClick} onMoveAff={moveAff} />
         }
       </div>
 
