@@ -161,14 +161,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
   const [autoSelectNext, setAutoSelectNext] = useState(false);
 
-  // Pas de date sélectionnée → bandeau neutre
-  if (!date) return (
-    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:600, background:"white", borderTop:"2px solid #1a2744", height: PANEL_HEIGHT, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <span style={{ color:"#aaa", fontSize:"0.8rem" }}>Cliquez sur un jour pour le modifier</span>
-    </div>
-  );
-
-  const affs    = affectations.filter(a => a.Date.startsWith(date));
+  const affs    = affectations.filter(a => date ? a.Date.startsWith(date) : false);
   const journee = affs.find(a => a.periode==="journee");
   const matin   = affs.find(a => a.periode==="matin");
   const aprem   = affs.find(a => a.periode==="aprem");
@@ -245,6 +238,12 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
       onChangeAff(aff.absence?.id ?? aff.Absence ?? "", "absence", newPeriode, aff.id);
     }
   };
+
+  if (!date) return (
+    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:600, background:"white", borderTop:"2px solid #1a2744", height: PANEL_HEIGHT, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <span style={{ color:"#aaa", fontSize:"0.8rem" }}>Cliquez sur un jour pour le modifier</span>
+    </div>
+  );
 
   return (
     <div style={{
