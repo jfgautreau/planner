@@ -207,7 +207,7 @@ export default function DashboardProd() {
                   <td style={{ padding:"0.4rem 0.5rem", textAlign:"center", borderLeft:"2px solid rgba(255,255,255,0.2)" }}>{fj(grandReal)}</td>
                 </tr>
                 <tr style={{ backgroundColor:"#27ae60", color:"white", fontWeight:"bold" }}>
-                  <td style={{ padding:"0.5rem 0.8rem" }}>🎯 Prévu</td>
+                  <td style={{ padding:"0.5rem 0.8rem" }}>🎯 Objectif</td>
                   {objByMonth.map((v,i)=><td key={i} style={{ padding:"0.4rem 0.2rem", textAlign:"center", fontSize:"0.78rem" }}>{v>0?fj(v):"·"}</td>)}
                   <td style={{ padding:"0.4rem 0.5rem", textAlign:"center", borderLeft:"2px solid rgba(255,255,255,0.2)" }}>{grandObj>0?fj(grandObj):"—"}</td>
                 </tr>
