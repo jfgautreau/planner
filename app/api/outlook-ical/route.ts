@@ -11,9 +11,11 @@ export async function GET(req: NextRequest) {
 
   if (!sultantId) return new NextResponse("sultant param required", { status: 400 });
 
+  // Service role key : nécessaire côté serveur pour contourner le RLS
+  // (l'API route ne porte pas de token utilisateur)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const [{ data: consultant }, { data: affectations }] = await Promise.all([
@@ -86,6 +88,9 @@ export async function GET(req: NextRequest) {
 
     const uid = `${dateStr}-${aff.periode}-${sultantId}@sultime-plannerapp`;
 
+    // CATEGORIES = code mission → Outlook applique la couleur de catégorie automatiquement
+    const category = aff.mission?.Code || aff.absence?.code || "";
+
     lines.push(
       "BEGIN:VEVENT",
       `UID:${uid}`,
@@ -93,7 +98,10 @@ export async function GET(req: NextRequest) {
       dtStart,
       dtEnd,
       `SUMMARY:${summary}`,
-      `DESCRIPTION:${name} - ${summary}`,
+      `DESCRIPTION:${name}\\n${summary}`,
+      ...(category ? [`CATEGORIES:${category}`] : []),
+      "STATUS:CONFIRMED",
+      "TRANSP:OPAQUE",
       "END:VEVENT",
     );
   });
