@@ -763,10 +763,7 @@ export default function AnnualPlanner() {
   const [absences, setAbsences]         = useState<Absence[]>([]);
   const [joursFeries, setJoursFeries]   = useState<JourFerie[]>([]);
   const [conges, setConges] = useState<CongeJour[]>([]);
-  const [year, setYear] = useState<number>(() => {
-    if (typeof window !== "undefined") { const s = localStorage.getItem(LS_YEAR); return s?parseInt(s):new Date().getFullYear(); }
-    return new Date().getFullYear();
-  });
+  const [year, setYear] = useState<number>(() => new Date().getFullYear());
 
   const [panelDate, setPanelDate]         = useState<string|null>(null);
   const [panelAutoSelect, setPanelAutoSelect] = useState(false);
