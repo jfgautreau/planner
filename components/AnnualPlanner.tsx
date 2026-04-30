@@ -769,11 +769,12 @@ export default function AnnualPlanner() {
   const [panelAutoSelect, setPanelAutoSelect] = useState(false);
   const [addPeriode, setAddPeriode]   = useState<"journee"|"matin"|"aprem">("journee");
   const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
-  const [todayStr, setTodayStr] = useState(() => new Date().toISOString().slice(0,10));
+  const localDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+  const [todayStr, setTodayStr] = useState(() => localDateStr());
   const [todayYear, setTodayYear] = useState(() => new Date().getFullYear());
   useEffect(() => {
     const update = () => {
-      setTodayStr(new Date().toISOString().slice(0,10));
+      setTodayStr(localDateStr());
       setTodayYear(new Date().getFullYear());
     };
     // Mettre à jour au focus de la fenêtre (F5, retour sur l'onglet)

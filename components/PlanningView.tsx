@@ -193,7 +193,7 @@ export default function PlanningView() {
   const [joursFeries, setJoursFeries] = useState<JourFerie[]>([]);
   const [conges, setConges]           = useState<CongeJour[]>([]);
   const [loading, setLoading]         = useState(true);
-  const todayStr = useMemo(() => new Date().toISOString().slice(0,10), []);
+  const todayStr = useMemo(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }, []);
 
   // Clipboard
   const [clipboard, setClipboard]       = useState<Affectation[]|null>(null);
