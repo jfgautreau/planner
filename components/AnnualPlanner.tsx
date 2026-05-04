@@ -777,6 +777,8 @@ export default function AnnualPlanner() {
       setTodayStr(localDateStr());
       setTodayYear(new Date().getFullYear());
     };
+    // Corriger immédiatement la date UTC du SSR par la date locale du client
+    update();
     // Mettre à jour au focus de la fenêtre (F5, retour sur l'onglet)
     window.addEventListener("focus", update);
     // Aussi à minuit
