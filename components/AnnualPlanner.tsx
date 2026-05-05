@@ -11,7 +11,7 @@ type Absence     = { id: string; code: string; nom: string; color: string };
 type Affectation = {
   id: string; Date: string; Sultant: string;
   Mission: string|null; Absence: string|null;
-  periode: "journee"|"matin"|"aprem"; copil: boolean; distanciel: boolean; created_at?: string;
+  periode: "journee"|"matin"|"aprem"; copil: boolean; distanciel: boolean; confirmed: boolean; created_at?: string;
   mission?: Mission|null; absence?: Absence|null;
 };
 type JourFerie = { date: string; nom: string };
@@ -146,6 +146,8 @@ type PanelProps = {
   onDelete: (id: string) => void;
   onCopil: (aff: Affectation) => void;
   onDistanciel: (aff: Affectation) => void;
+  onConfirm: (aff: Affectation) => void;
+  canConfirm: boolean;
   onAddSlot: (periode: "journee"|"matin"|"aprem") => void;
   onCopy: () => void;
   onPaste: () => void;
@@ -155,7 +157,7 @@ type PanelProps = {
 
 export const PANEL_HEIGHT = 100;
 
-export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onCopy, onPaste, onClose, autoSelect }: PanelProps) {
+export function BottomPanel({ date, sultantName, affectations, missions, absences, canEdit, clipboard, onPick, onChangeAff, onDelete, onCopil, onDistanciel, onConfirm, canConfirm, onCopy, onPaste, onClose, autoSelect }: PanelProps) {
 
   const [periode, setPeriode]             = useState<"journee"|"matin"|"aprem">("journee");
   const [selectedAffId, setSelectedAffId] = useState<string|null>(null);
@@ -167,6 +169,7 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
   const label   = date ? new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" }) : "";
   // Auto-sélectionner si 1 seule aff (pas besoin de cliquer)
   const selectedAff = affs.find(a => a.id === selectedAffId) ?? (affs.length === 1 ? affs[0] : null);
+  const isConfirmed = selectedAff?.confirmed ?? false;
 
   // Reset quand on change de date
   useEffect(() => {
@@ -240,30 +243,42 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
             Avec sélection : change la période de l'aff sélectionnée */}
         <div style={{ ...col, minWidth:100 }}>
           <button onClick={() => {
-            if (selectedAff) { doChangePeriode(selectedAff, "journee"); }
-            else              { setPeriode("journee"); }
-          }} style={btn("#1a2744", selectedAff ? selectedAff.periode === "journee" : periode === "journee")}>
+            if (selectedAff && !isConfirmed) { doChangePeriode(selectedAff, "journee"); }
+            else if (!selectedAff)           { setPeriode("journee"); }
+          }} style={{ ...btn("#1a2744", selectedAff ? selectedAff.periode === "journee" : periode === "journee"), opacity: isConfirmed ? 0.4 : 1 }}
+            disabled={isConfirmed && !!selectedAff}>
             Journée
           </button>
           <div style={{ display:"flex", gap:"0.25rem" }}>
             {(["matin", "aprem"] as const).map(p => (
               <button key={p} onClick={() => {
-                if (selectedAff) { doChangePeriode(selectedAff, p); }
-                else              { setPeriode(p); }
-              }} style={btn("#1a2744", selectedAff ? selectedAff.periode === p : periode === p)}>
+                if (selectedAff && !isConfirmed) { doChangePeriode(selectedAff, p); }
+                else if (!selectedAff)           { setPeriode(p); }
+              }} style={{ ...btn("#1a2744", selectedAff ? selectedAff.periode === p : periode === p), opacity: isConfirmed ? 0.4 : 1 }}
+                disabled={isConfirmed && !!selectedAff}>
                 {p === "matin" ? "Matin" : "A-midi"}
               </button>
             ))}
           </div>
         </div>
 
-        {/* COL 2 : COPIL + Distanciel (sur l'aff sélectionnée) */}
+        {/* COL 2 : COPIL + Distanciel + Confirmé (sur l'aff sélectionnée) */}
         {canEdit && (
           <div style={col}>
-            <button onClick={() => { if (selectedAff) onCopil(selectedAff); }}
-              style={btn("#e67e22", !!selectedAff?.copil)}>★ COPIL</button>
-            <button onClick={() => { if (selectedAff) onDistanciel(selectedAff); }}
-              style={btn("#2980b9", !!selectedAff?.distanciel)}>⊟ Dist.</button>
+            <button onClick={() => { if (selectedAff && !isConfirmed) onCopil(selectedAff); }}
+              style={{ ...btn("#e67e22", !!selectedAff?.copil), opacity: isConfirmed ? 0.4 : 1 }}
+              disabled={isConfirmed && !!selectedAff}>★ COPIL</button>
+            <button onClick={() => { if (selectedAff && !isConfirmed) onDistanciel(selectedAff); }}
+              style={{ ...btn("#2980b9", !!selectedAff?.distanciel), opacity: isConfirmed ? 0.4 : 1 }}
+              disabled={isConfirmed && !!selectedAff}>⊟ Dist.</button>
+          </div>
+        )}
+        {canConfirm && selectedAff && (
+          <div style={col}>
+            <button onClick={() => onConfirm(selectedAff)}
+              style={btn("#27ae60", isConfirmed)}>
+              {isConfirmed ? "🔒 Confirmé" : "🔓 Confirmer"}
+            </button>
           </div>
         )}
 
@@ -284,11 +299,11 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   if (active) {
                     // Règle 1 : sélectionner / désélectionner
                     setSelectedAffId(isSel ? null : affM!.id);
-                  } else if (selectedAff) {
-                    // Règle 2 : remplacer la mission de l'aff sélectionnée
+                  } else if (selectedAff && !isConfirmed) {
+                    // Règle 2 : remplacer la mission (bloqué si confirmé)
                     onChangeAff(m.id, "mission", selectedAff.periode, selectedAff.id);
                     setSelectedAffId(null);
-                  } else if (!periodeBloquee) {
+                  } else if (!selectedAff && !periodeBloquee) {
                     // Règle 3 : nouvelle affectation
                     onPick(m.id, "mission", periode);
                   }
@@ -313,10 +328,10 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
                   if (!canEdit) return;
                   if (active) {
                     setSelectedAffId(isSel ? null : affA!.id);
-                  } else if (selectedAff) {
+                  } else if (selectedAff && !isConfirmed) {
                     onChangeAff(a.id, "absence", selectedAff.periode, selectedAff.id);
                     setSelectedAffId(null);
-                  } else if (!periodeBloquee) {
+                  } else if (!selectedAff && !periodeBloquee) {
                     onPick(a.id, "absence", periode);
                   }
                 }} style={{
@@ -357,9 +372,10 @@ export function BottomPanel({ date, sultantName, affectations, missions, absence
               <button onClick={onPaste} style={btn("#27ae60", !!clipboard)}>📌 Coller</button>
             </div>
             <button
-              onClick={() => { if (selectedAff) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
-              style={btn("#e74c3c", false)}
-              title="Supprimer (Del)">🗑 Suppr</button>
+              onClick={() => { if (selectedAff && !isConfirmed) { onDelete(selectedAff.id); setSelectedAffId(null); } }}
+              style={{ ...btn("#e74c3c", false), opacity: isConfirmed ? 0.3 : 1 }}
+              disabled={isConfirmed}
+              title={isConfirmed ? "Confirmé — suppression bloquée" : "Supprimer (Del)"}>🗑 Suppr</button>
           </div>
         )}
       </div>
@@ -688,7 +704,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                         <td
                           title={ferie?.nom||(zA||zB||zC?`Zone ${zA?"A":""} ${zB?"B":""} ${zC?"C":""}`.trim():undefined)}
                           style={{ background:blocked?GRAY:"white", border:"1px solid #ddd", padding:0, position:"relative", overflow:"hidden" }}
-                          draggable={!blocked && hasAffs && canEdit}
+                          draggable={!blocked && hasAffs && canEdit && !affs.some(a => a.confirmed)}
                           onDragStart={() => { setDragFrom(dateStr); if (selectedCon && canRead) onFirstClick(dateStr, true, true); }}
                           onDragOver={e => { if (dragFrom && dragFrom !== dateStr && !blocked) e.preventDefault(); }}
                           onDrop={e => { e.preventDefault(); if (dragFrom && dragFrom !== dateStr && onMoveAff) { onMoveAff(dragFrom, dateStr); setDragFrom(null); } }}
@@ -699,7 +715,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                               style={{ position:"absolute", inset:0, background:jStyle!.bg, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
                               {journee.copil && <CopilCorner />}
                               {journee.distanciel && <DistancielCorner />}
-                              <span style={{ color:jStyle!.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle!.code}</span>
+                              <span style={{ color:jStyle!.text, fontWeight:"bold", fontSize:"0.58rem" }}>{jStyle!.code}{journee.confirmed ? " 🔒" : ""}</span>
                             </div>
                           )}
                           {!blocked && !journee && (
@@ -709,7 +725,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                                   style={{ flex:1, minWidth:0, background:s?.bg||"transparent", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", borderRight:"1px solid rgba(0,0,0,0.1)", cursor:selectedCon?"pointer":"default" }}>
                                   {matin?.copil && <CopilCorner />}
                                   {matin?.distanciel && <DistancielCorner />}
-                                  {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
+                                  {matin&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}{matin.confirmed ? " 🔒" : ""}</span>}
                                 </div>
                               );})()}
                               {(() => { const s=aprem?getAffStyle(aprem):null; return (
@@ -717,7 +733,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
                                   style={{ flex:1, minWidth:0, background:s?.bg||"transparent", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", cursor:selectedCon?"pointer":"default" }}>
                                   {aprem?.copil && <CopilCorner />}
                                   {aprem?.distanciel && <DistancielCorner />}
-                                  {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}</span>}
+                                  {aprem&&s&&<span style={{ color:s.text, fontWeight:"bold", fontSize:"0.5rem" }}>{s.code}{aprem.confirmed ? " 🔒" : ""}</span>}
                                 </div>
                               );})()}
                             </div>
@@ -828,7 +844,7 @@ export default function AnnualPlanner() {
   useEffect(() => {
     if (!selectedCon) return;
     supabase.from("Affectation")
-      .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+      .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,confirmed,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
       .eq("Sultant", selectedCon).gte("Date",`${year}-01-01`).lte("Date",`${year}-12-31`)
       .then(({ data }) => setAffectations((data as unknown as Affectation[])||[]));
   }, [selectedCon, year]);
@@ -855,8 +871,8 @@ export default function AnnualPlanner() {
       }));
     } else {
       const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:panelDate, Sultant:selectedCon, periode, copil:false, distanciel:false, ...payload })
-        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+        .insert({ Date:panelDate, Sultant:selectedCon, periode, copil:false, distanciel:false, confirmed:false, ...payload })
+        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,confirmed,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (error) return;
       setAffectations(prev => [...prev, data as unknown as Affectation]);
@@ -867,6 +883,7 @@ export default function AnnualPlanner() {
     if (!selectedCon || !canEditSelected) return;
     const fromAffs = affectations.filter(a => a.Date.startsWith(fromDate) && a.Sultant === selectedCon);
     if (fromAffs.length === 0) return;
+    if (fromAffs.some(a => a.confirmed)) return; // bloqué si au moins une aff confirmée
     for (const aff of fromAffs) {
       await supabase.from("Affectation").update({ Date: toDate }).eq("id", aff.id);
       setAffectations(prev => prev.map(a => a.id === aff.id ? {...a, Date: toDate} : a));
@@ -894,8 +911,8 @@ export default function AnnualPlanner() {
     for (const aff of clipboard) {
       const payload = aff.mission ? { Mission: aff.mission.id ?? aff.Mission, Absence: null } : { Absence: aff.absence?.id ?? aff.Absence, Mission: null };
       const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:panelDate, Sultant:selectedCon, periode:aff.periode, copil:aff.copil, distanciel:aff.distanciel, ...payload })
-        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
+        .insert({ Date:panelDate, Sultant:selectedCon, periode:aff.periode, copil:aff.copil, distanciel:aff.distanciel, confirmed:false, ...payload })
+        .select(`id,Date,Mission,Absence,Sultant,periode,copil,distanciel,confirmed,created_at,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)`)
         .single();
       if (!error && data) setAffectations(prev => [...prev, data as unknown as Affectation]);
     }
@@ -916,6 +933,11 @@ export default function AnnualPlanner() {
   const toggleDistanciel = useCallback(async (aff: Affectation) => {
     await supabase.from("Affectation").update({ distanciel:!aff.distanciel }).eq("id",aff.id);
     setAffectations(prev => prev.map(a => a.id===aff.id?{...a,distanciel:!aff.distanciel}:a));
+  }, []);
+
+  const toggleConfirmed = useCallback(async (aff: Affectation) => {
+    await supabase.from("Affectation").update({ confirmed:!aff.confirmed }).eq("id",aff.id);
+    setAffectations(prev => prev.map(a => a.id===aff.id?{...a,confirmed:!aff.confirmed}:a));
   }, []);
 
 
@@ -970,6 +992,8 @@ export default function AnnualPlanner() {
           onDelete={deleteAff}
           onCopil={toggleCopil}
           onDistanciel={toggleDistanciel}
+          onConfirm={toggleConfirmed}
+          canConfirm={access.role === "admin" || access.role === "chef_mission" || access.role === "consultant"}
           onAddSlot={(periode) => setAddPeriode(periode)}
           onCopy={copyDay}
           onPaste={pasteDay}
