@@ -209,6 +209,9 @@ export default function PlanningView() {
   const [dragAbsence, setDragAbsence] = useState<Absence|null>(null);
   const [dragOver, setDragOver]       = useState<{sultantId:string; date:string}|null>(null);
 
+  // Drag source (affectation existante à déplacer)
+  const [dragSrc, setDragSrc] = useState<{sultantId:string; date:string}|null>(null);
+
   // Bandeau
   const [panel, setPanel] = useState<{date:string; sultantId:string}|null>(null);
 
@@ -239,7 +242,7 @@ export default function PlanningView() {
       supabase.from("JourFerie").select("date,nom").gte("date", dateMin).lte("date", dateMax),
       supabase.from("CongeJour").select("date,zone_a,zone_b,zone_c").gte("date", dateMin).lte("date", dateMax),
       supabase.from("Affectation")
-        .select("id,Date,Mission,Absence,Sultant,periode,copil,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)")
+        .select("id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)")
         .gte("Date", dateMin).lte("Date", dateMax),
     ]).then(([{ data: jf }, { data: cg }, { data: af }]) => {
       setJoursFeries((jf || []) as JourFerie[]);
@@ -317,8 +320,8 @@ export default function PlanningView() {
       }));
     } else {
       const { data, error } = await supabase.from("Affectation")
-        .insert({ Date:date, Sultant:sultantId, periode, copil:false, ...payload })
-        .select("id,Date,Mission,Absence,Sultant,periode,copil,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)")
+        .insert({ Date:date, Sultant:sultantId, periode, copil:false, distanciel:false, ...payload })
+        .select("id,Date,Mission,Absence,Sultant,periode,copil,distanciel,mission:Mission(id,Code,Color,TextColor,Client,Mission),absence:Absence(id,code,nom,color)")
         .single();
       if (error) return;
       setAffectations(prev => [...prev, data as unknown as Affectation]);
@@ -335,8 +338,27 @@ export default function PlanningView() {
     setAffectations(prev => prev.map(a => a.id===aff.id ? {...a, copil:!aff.copil} : a));
   }, []);
 
+  // Déplacer toutes les affs d'une cellule vers une autre (drag existant)
+  const moveCell = useCallback(async (srcSultantId: string, srcDate: string, dstSultantId: string, dstDate: string) => {
+    if (!canWrite(srcSultantId) || !canWrite(dstSultantId)) return;
+    if (srcSultantId === dstSultantId && srcDate === dstDate) return;
+    const srcAffs = affMap.get(`${srcSultantId}::${srcDate}`) ?? [];
+    if (srcAffs.length === 0) return;
+    const dstAffs = affMap.get(`${dstSultantId}::${dstDate}`) ?? [];
+    if (dstAffs.some(a => a.periode === "journee")) return; // cible occupée
+    for (const aff of srcAffs) {
+      const { error } = await supabase.from("Affectation").update({ Date: dstDate, Sultant: dstSultantId }).eq("id", aff.id);
+      if (!error) setAffectations(prev => prev.map(a => a.id === aff.id ? {...a, Date: dstDate, Sultant: dstSultantId} : a));
+    }
+  }, [canWrite, affMap]);
+
   // Drop d'une mission sur une cellule
   const handleDrop = useCallback(async (sultantId: string, ds: string) => {
+    if (dragSrc) {
+      await moveCell(dragSrc.sultantId, dragSrc.date, sultantId, ds);
+      setDragSrc(null); setDragOver(null);
+      return;
+    }
     if (!canWrite(sultantId)) return;
     const affs = affMap.get(`${sultantId}::${ds}`) ?? [];
     const hasJournee = affs.some(a => a.periode==="journee");
@@ -346,7 +368,7 @@ export default function PlanningView() {
     if (!id) return;
     await saveAff(sultantId, ds, id, type, "journee");
     setDragMission(null); setDragAbsence(null); setDragOver(null);
-  }, [canWrite, affMap, dragMission, dragAbsence, saveAff]);
+  }, [canWrite, affMap, dragMission, dragAbsence, saveAff, dragSrc, moveCell]);
 
   // todayStr déjà défini via useMemo
   const navBtn: React.CSSProperties = { padding:"0.3rem 0.6rem", border:"1px solid #ccc", borderRadius:4, cursor:"pointer", background:"white", fontSize:"0.82rem" };
@@ -463,8 +485,12 @@ export default function PlanningView() {
                   else if (journee) bg = getAffStyle(journee).bg;
                   else if (isDragTarget) bg = "#e8f4e8";
 
+                  const isSrcDrag = dragSrc?.sultantId === sultant.id && dragSrc?.date === day.ds;
                   return (
                     <td key={day.ds}
+                      draggable={hasAffs && canEdit && !day.blocked}
+                      onDragStart={e => { e.stopPropagation(); setDragSrc({sultantId:sultant.id, date:day.ds}); setDragMission(null); setDragAbsence(null); }}
+                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
                       onClick={() => {
                         if (day.blocked || !canEdit) return;
                         setPanel({ date:day.ds, sultantId:sultant.id });
@@ -474,10 +500,11 @@ export default function PlanningView() {
                       onDrop={e => { e.preventDefault(); handleDrop(sultant.id, day.ds); }}
                       style={{
                         height:32, padding:0, position:"relative",
-                        background: bg,
+                        background: isSrcDrag ? "#e0e8f0" : bg,
                         border: isToday ? "2px solid #111" : isDragTarget ? "2px dashed #27ae60" : "1px solid #eee",
-                        cursor: canEdit && !day.blocked ? "pointer" : "default",
+                        cursor: canEdit && !day.blocked ? (hasAffs ? "grab" : "pointer") : "default",
                         overflow:"hidden",
+                        opacity: isSrcDrag ? 0.5 : 1,
                       }}
                     >
                       {/* Fériés */}
@@ -491,7 +518,8 @@ export default function PlanningView() {
                         const st = getAffStyle(journee);
                         return (
                           <div style={{ position:"absolute", inset:0, background:st.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                            {journee.copil && <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 7px 7px 0", borderColor:`transparent #111 transparent transparent` }} />}
+                            {journee.copil && <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 7px 7px 0", borderColor:`transparent #111 transparent transparent`, zIndex:3, pointerEvents:"none" }} />}
+                            {journee.distanciel && <span style={{ position:"absolute", top:0, left:0, width:0, height:0, borderStyle:"solid", borderWidth:"7px 7px 0 0", borderColor:"#2980b9 transparent transparent transparent", zIndex:3, pointerEvents:"none" }} />}
                             <span style={{ color:st.text, fontWeight:"bold", fontSize:"0.62rem" }}>{st.code}</span>
                           </div>
                         );
@@ -501,13 +529,15 @@ export default function PlanningView() {
                         <div style={{ position:"absolute", inset:0, display:"flex" }}>
                           {(() => { const st = matin ? getAffStyle(matin) : null; return (
                             <div style={{ flex:1, background:st?.bg||"#eee", display:"flex", alignItems:"center", justifyContent:"center", borderRight:"1px solid rgba(255,255,255,0.5)", position:"relative" }}>
-                              {matin?.copil && <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 5px 5px 0", borderColor:`transparent #111 transparent transparent` }} />}
+                              {matin?.copil && <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 5px 5px 0", borderColor:`transparent #111 transparent transparent`, zIndex:3, pointerEvents:"none" }} />}
+                              {matin?.distanciel && <span style={{ position:"absolute", top:0, left:0, width:0, height:0, borderStyle:"solid", borderWidth:"5px 5px 0 0", borderColor:"#2980b9 transparent transparent transparent", zIndex:3, pointerEvents:"none" }} />}
                               {matin && st && <span style={{ color:st.text, fontWeight:"bold", fontSize:"0.52rem" }}>{st.code}</span>}
                             </div>
                           );})()}
                           {(() => { const st = aprem ? getAffStyle(aprem) : null; return (
                             <div style={{ flex:1, background:st?.bg||"#eee", display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                              {aprem?.copil && <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 5px 5px 0", borderColor:`transparent #111 transparent transparent` }} />}
+                              {aprem?.copil && <span style={{ position:"absolute", top:0, right:0, width:0, height:0, borderStyle:"solid", borderWidth:"0 5px 5px 0", borderColor:`transparent #111 transparent transparent`, zIndex:3, pointerEvents:"none" }} />}
+                              {aprem?.distanciel && <span style={{ position:"absolute", top:0, left:0, width:0, height:0, borderStyle:"solid", borderWidth:"5px 5px 0 0", borderColor:"#2980b9 transparent transparent transparent", zIndex:3, pointerEvents:"none" }} />}
                               {aprem && st && <span style={{ color:st.text, fontWeight:"bold", fontSize:"0.52rem" }}>{st.code}</span>}
                             </div>
                           );})()}
