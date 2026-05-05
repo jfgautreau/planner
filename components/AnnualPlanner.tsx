@@ -769,17 +769,16 @@ export default function AnnualPlanner() {
   const [panelAutoSelect, setPanelAutoSelect] = useState(false);
   const [addPeriode, setAddPeriode]   = useState<"journee"|"matin"|"aprem">("journee");
   const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
-  const localDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-  const [todayStr, setTodayStr] = useState(() => localDateStr());
-  const [todayYear, setTodayYear] = useState(() => new Date().getFullYear());
+  const [todayStr, setTodayStr] = useState("");
+  const [todayYear, setTodayYear] = useState(0);
   useEffect(() => {
     const update = () => {
-      setTodayStr(localDateStr());
-      setTodayYear(new Date().getFullYear());
+      const d = new Date();
+      setTodayStr(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+      setTodayYear(d.getFullYear());
     };
-    // Corriger immédiatement la date UTC du SSR par la date locale du client
     update();
-    // Mettre à jour au focus de la fenêtre (F5, retour sur l'onglet)
+    // Mettre à jour au focus de la fenêtre (retour sur l'onglet)
     window.addEventListener("focus", update);
     // Aussi à minuit
     const now = new Date();
