@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAccess, type MenuKey } from "@/hooks/useAccess";
@@ -50,7 +50,7 @@ export function getAffStyle(aff: Affectation) {
 }
 
 // ── Navbar fixe ──────────────────────────────────────────────────────────────
-export function FixedNav({ activePath, role, visibleMenus, selectedCon, year }: { activePath: string; role?: string; visibleMenus?: Set<string>; selectedCon?: string; year?: number }) {
+export function FixedNav({ activePath, role, visibleMenus, selectedCon, year, onExportPdf }: { activePath: string; role?: string; visibleMenus?: Set<string>; selectedCon?: string; year?: number; onExportPdf?: () => void }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const s = (path: string): React.CSSProperties => ({
@@ -101,8 +101,18 @@ export function FixedNav({ activePath, role, visibleMenus, selectedCon, year }: 
             📅 Export ICS
           </a>
         )}
+        {/* Bouton PDF desktop */}
+        {onExportPdf && (
+          <button
+            onClick={onExportPdf}
+            className="nav-desktop"
+            style={{ marginLeft: selectedCon ? "0.5rem" : "auto", padding:"0.3rem 0.8rem", background:"#e74c3c", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold", display:"inline-flex", alignItems:"center", gap:"0.3rem" }}
+          >
+            📄 Export PDF
+          </button>
+        )}
         {/* Déconnexion desktop */}
-        <button onClick={logout} className="nav-desktop" style={{ marginLeft: selectedCon ? "0.5rem" : "auto", padding:"0.3rem 0.8rem", background:"#82B2C0", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
+        <button onClick={logout} className="nav-desktop" style={{ marginLeft: (selectedCon || onExportPdf) ? "0.5rem" : "auto", padding:"0.3rem 0.8rem", background:"#82B2C0", color:"white", border:"none", borderRadius:4, cursor:"pointer", fontSize:"0.78rem", fontWeight:"bold" }}>
           🚪 Déconnexion
         </button>
         {/* Hamburger mobile */}
@@ -562,9 +572,10 @@ type CalViewProps = {
   selectedCon: string; canEdit: boolean; canRead: boolean; todayStr: string; panelOpen: boolean; selectedDate: string|null;
   onFirstClick: (ds: string, hasAffs: boolean, clickedOnAff?: boolean) => void;
   onMoveAff?: (fromDate: string, toDate: string) => void;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 };
 
-function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick, onMoveAff }: CalViewProps) {
+function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit, canRead, todayStr, panelOpen, selectedDate, onFirstClick, onMoveAff, containerRef }: CalViewProps) {
   const [dragFrom, setDragFrom] = useState<string|null>(null);
   const dim = (mi: number) => new Date(year, mi+1, 0).getDate();
   const ds  = (mi: number, d: number) => `${year}-${String(mi+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -591,7 +602,7 @@ function CalView({ year, affectations, joursFeries, conges, selectedCon, canEdit
   const getConge = (dateStr: string) => congeMap.get(dateStr);
 
   return (
-    <div style={{ width:"100%", height:"100%", overflowX:"auto", overflowY:"hidden" }}>
+    <div ref={containerRef} style={{ width:"100%", height:"100%", overflowX:"auto", overflowY:"hidden" }}>
       <table style={{ borderCollapse:"collapse", fontSize:"0.67rem", width:"100%", height:"100%", tableLayout:"fixed" }}>
         <colgroup>
           {quarters.map(q => (
@@ -787,6 +798,7 @@ export default function AnnualPlanner() {
   const [clipboard, setClipboard]     = useState<Affectation[]|null>(null);
   const [todayStr, setTodayStr] = useState("");
   const [todayYear, setTodayYear] = useState(0);
+  const calRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const update = () => {
       const d = new Date();
@@ -940,12 +952,38 @@ export default function AnnualPlanner() {
     setAffectations(prev => prev.map(a => a.id===aff.id?{...a,confirmed:!aff.confirmed}:a));
   }, []);
 
-
-
+  const exportPdf = useCallback(async () => {
+    const el = calRef.current;
+    if (!el) return;
+    const { default: html2canvas } = await import("html2canvas");
+    const { default: jsPDF } = await import("jspdf");
+    // Expand overflow to capture full scrollable width
+    const prevOX = el.style.overflowX;
+    const prevOY = el.style.overflowY;
+    el.style.overflowX = "visible";
+    el.style.overflowY = "visible";
+    const canvas = await html2canvas(el, {
+      scale: 1.5,
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+      width: el.scrollWidth,
+      height: el.scrollHeight,
+      windowWidth: el.scrollWidth,
+    });
+    el.style.overflowX = prevOX;
+    el.style.overflowY = prevOY;
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 1.5, canvas.height / 1.5] });
+    pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 1.5, canvas.height / 1.5);
+    const con = consultants.find(c => c.id === selectedCon);
+    const name = con ? `${con.Nom}_${con.Prénom}` : "planning";
+    pdf.save(`${name}_${year}.pdf`);
+  }, [selectedCon, year, consultants]);
 
   return (
     <div style={{ paddingTop:46, paddingBottom:100, background:"white", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", boxSizing:"border-box" }}>
-      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} selectedCon={selectedCon} year={year} />
+      <FixedNav activePath={pathname||"/"} role={access.role ?? undefined} visibleMenus={access.visibleMenus} selectedCon={selectedCon} year={year} onExportPdf={selectedCon ? exportPdf : undefined} />
       <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.28rem 0.8rem", background:"#f0f4f8", borderBottom:"1px solid #ddd", flexWrap:"wrap" }}>
         {!isMobile && <>
           <button onClick={() => setYear(y=>y-1)} style={subBtn}>◀</button>
@@ -974,7 +1012,7 @@ export default function AnnualPlanner() {
       <div style={{ flex:1, overflow:"hidden", minHeight:0 }}>
         {isMobile
           ? <MobileCalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} onFirstClick={handleDayClick} />
-          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} onFirstClick={handleDayClick} onMoveAff={moveAff} />
+          : <CalView year={year} affectations={affectations} joursFeries={joursFeries} conges={conges} selectedCon={selectedCon} canEdit={canEditSelected} canRead={canReadSelected} todayStr={todayStr} panelOpen={!!panelDate} selectedDate={panelDate} onFirstClick={handleDayClick} onMoveAff={moveAff} containerRef={calRef} />
         }
       </div>
 
